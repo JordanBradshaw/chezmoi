@@ -111,7 +111,8 @@ echo "Target:   $TARGET"
 
 case "${1:-}" in
     all)
-        stow \
+        echo "Running command: stow -d "$DOTFILES_DIR" -t "$TARGET" -v atuin bat fd git htop lsd pip ripgrep tmux wizterm starship konsole yakuake"
+	stow \
             -d "$DOTFILES_DIR" \
             -t "$TARGET" \
             -v atuin bat fd git htop lsd pip ripgrep tmux wizterm starship konsole yakuake

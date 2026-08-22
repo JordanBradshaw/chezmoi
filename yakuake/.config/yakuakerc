@@ -22,7 +22,7 @@ toggle-session-monitor-activity=;\s
 
 [Window]
 DynamicTabTitles=true
-Height=80
+Height=88
 KeepOpenAfterLastSessionCloses=true
 ToggleToFocus=true
 Width=70

@@ -7,5 +7,12 @@ ConfigVersion=1
 AllowMenuAccelerators=true
 ForceNewTabs=true
 
+[MainWindow]
+1920x1200 screen: Height=478
+1920x1200 screen: Width=911
+1920x1200 screen: XPosition=219
+1920x1200 screen: YPosition=554
+eDP-1=eDP-1
+
 [UiSettings]
 ColorScheme=
