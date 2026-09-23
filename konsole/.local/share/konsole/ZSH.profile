@@ -1,12 +1,15 @@
 [Appearance]
+AntiAliasFonts=true
+BoldIntense=true
 ColorScheme=Sweet-Ambar-Blue
-Font=Fira Code Retina,10,-1,5,450,0,0,0,0,0,0,0,0,0,0,1,Regular,2,calt=1,liga=1,0
+Font=Fira Code Retina,10,-1,5,53,0,0,0,0,0,Regular
 WordMode=true
 
 [Cursor Options]
 CursorShape=1
 
 [General]
+Command=/bin/zsh
 Icon=yakuake-symbolic
 LocalTabTitleFormat=%h: %d
 Name=ZSH
@@ -21,8 +24,10 @@ MouseWheelZoomEnabled=false
 KeyBindings=default
 
 [Scrolling]
+HighlightScrolledLines=true
 HistoryMode=1
 HistorySize=2000
+ReflowLines=true
 
 [Terminal Features]
 AnimatingCursorEnabled=false
