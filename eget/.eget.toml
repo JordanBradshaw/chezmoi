@@ -1,0 +1,25 @@
+[global]
+target = "~/.local/bin"
+show_hash = true
+upgrade_only = true
+
+["yutat23/lsoff"]
+#asset = "linux-amd64"
+file = "lsoff"
+
+["matheus-git/systemd-manager-tui"]
+asset_filters = [ "^deb", "^rpm" ]
+asset = "systemd-manager-tui"
+
+
+["thobiasn/tori-cli"]
+asset-filters = [ "linux" , "amd64" ]
+file = "tori"
+
+["imsnif/bandwhich"]
+asset_filters = [ "gnu" ]
+file = "bandwhich"
+
+["matthart1983/diskwatch"]
+asset_filters = [ "static", ".tar.gz" ]
+target = "~/.local/bin/diskwatch"
