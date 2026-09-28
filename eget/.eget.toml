@@ -23,3 +23,34 @@ file = "bandwhich"
 ["matthart1983/diskwatch"]
 asset_filters = [ "static", ".tar.gz" ]
 target = "~/.local/bin/diskwatch"
+
+["Lifailon/lazyjournal"]
+
+# Really should get tailspin (tsp)
+
+
+
+["jesseduffield/lazydocker"]
+
+["jesseduffield/lazygit"]
+
+
+["westpoint-io/lazyrsync"]
+asset_filters = [ "gnu" ]
+
+["dimonomid/nerdlog"]
+asset_filters = [ "tar.gz", "^.sbom.json" ]
+
+["rgwood/systemctl-tui"]
+
+["orhun/systeroid"]
+
+asset_filters = [ "x86_64", "gnu", "all-features", "tar.gz", "^.sha512", "^.sig" ]
+
+["depot/cli"]
+
+["mikeleppane/envx"]
+asset_filters = [ "amd64", "static" ]
+
+["alajmo/sake"]
+asset_filters = [ "amd64", "static" ]
