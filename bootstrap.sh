@@ -4,8 +4,8 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Packages
 # ---------------------------------------------------------------------------
-# git-delta
-
+# git-delta lsd bat fzf fonts-firacode procs 
+# mlr nushell gh tailspin
 # ---------------------------------------------------------------------------
 # Requirements
 # ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ case "${1:-}" in
 	stow \
             -d "$DOTFILES_DIR" \
             -t "$TARGET" \
-            -v atuin bat fd git htop lsd pip ripgrep tmux wizterm starship konsole yakuake
+            -v atuin bat fd git htop lsd pip ripgrep tmux wizterm starship zsh eget
         ;;
 
     shell)
@@ -136,9 +136,16 @@ case "${1:-}" in
             bat btop lsd ripgrep micro
         ;;
 
+    gui)
+        stow \
+            -d "$DOTFILES_DIR" \
+            -t "$TARGET" \
+            -v --adopt konsole yakuake
+        ;;
+
+
     *)
         echo "Usage: $0 {terminal|shell|cli}" >&2
         exit 1
         ;;
 esac
-
