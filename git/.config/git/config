@@ -2,11 +2,12 @@
 #    editor = nano
     autocrlf = input
     safecrlf = true
-    whitespace = fix
     filemode = true
     excludesfile = ~/.config/git/ignore
     pager = delta
     fsmonitor = true
+[apply]
+    whitespace = fix
 [color]
     ui = auto
 [color "status"]
@@ -80,3 +81,6 @@
 
 [tag]
     gpgSign = false
+
+[include] 
+    path = ~/.config/git/config.local

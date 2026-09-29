@@ -13,7 +13,7 @@ asset = "systemd-manager-tui"
 
 
 ["thobiasn/tori-cli"]
-asset-filters = [ "linux" , "amd64" ]
+asset_filters = [ "linux" , "amd64" ]
 file = "tori"
 
 ["imsnif/bandwhich"]
@@ -53,4 +53,4 @@ asset_filters = [ "x86_64", "gnu", "all-features", "tar.gz", "^.sha512", "^.sig"
 asset_filters = [ "amd64", "static" ]
 
 ["alajmo/sake"]
-asset_filters = [ "amd64", "static" ]
+asset_filters = [ "amd64" ]

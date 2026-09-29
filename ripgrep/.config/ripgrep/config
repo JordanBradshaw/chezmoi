@@ -8,4 +8,3 @@
 --glob=!node_modules/*
 --glob=!.git/*
 --glob=!.venv/*
---sort-files
