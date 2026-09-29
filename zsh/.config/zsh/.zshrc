@@ -10,7 +10,14 @@ zstyle ':antidote:bundle' use-friendly-names 'yes'
 }
 if [[ -f "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh" ]]; then
   source "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh"
-  antidote load
+  # Regenerate the static plugin file only when the plugin list changes;
+  # `antidote load` does this check the slow way on every startup.
+  zsh_plugins=${ZDOTDIR:-$HOME}/.zsh_plugins
+  if [[ ! ${zsh_plugins}.zsh -nt ${zsh_plugins}.txt ]]; then
+    antidote bundle <${zsh_plugins}.txt >|${zsh_plugins}.zsh
+  fi
+  source ${zsh_plugins}.zsh
+  unset zsh_plugins
 fi
 
 # Completion zstyles are applied after plugins so oh-my-zsh's lib/completion.zsh
