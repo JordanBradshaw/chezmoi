@@ -3,6 +3,10 @@ color_prompt=yes
 
 # Antidote settings must be in place before `antidote load`.
 zstyle ':antidote:bundle' use-friendly-names 'yes'
+# Don't let zsh-defer re-run precmd hooks after each deferred plugin. zshrinkwrap
+# prints the top prompt line from precmd, and zsh-defer sends that output to
+# /dev/null, which wiped the first line of the first prompt.
+zstyle ':antidote:bundle:*' defer-options '-m'
 
 [[ -d ${ZDOTDIR:-$HOME}/.antidote ]] || {
   echo "🔧 Installing Antidote..."
