@@ -1,7 +1,8 @@
 #!/bin/zsh
-export color_prompt=yes
-# Set any zstyles you might use for configuration.
-[[ ! -f ${ZDOTDIR:-$HOME}/.zstyles ]] || source ${ZDOTDIR:-$HOME}/.zstyles
+color_prompt=yes
+
+# Antidote settings must be in place before `antidote load`.
+zstyle ':antidote:bundle' use-friendly-names 'yes'
 
 [[ -d ${ZDOTDIR:-$HOME}/.antidote ]] || {
   echo "🔧 Installing Antidote..."
@@ -9,8 +10,13 @@ export color_prompt=yes
 }
 if [[ -f "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh" ]]; then
   source "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh"
+  antidote load
 fi
-antidote load
+
+# Completion zstyles are applied after plugins so oh-my-zsh's lib/completion.zsh
+# doesn't overwrite them.
+[[ ! -f ${ZDOTDIR:-$HOME}/.zstyles ]] || source ${ZDOTDIR:-$HOME}/.zstyles
+[[ ! -f ${ZDOTDIR:-$HOME}/.zstyles.local ]] || source ${ZDOTDIR:-$HOME}/.zstyles.local
 
 if [ -f ~/.aliases ]; then
     . ~/.aliases

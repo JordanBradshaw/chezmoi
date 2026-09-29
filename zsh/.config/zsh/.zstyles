@@ -1,7 +1,6 @@
 #!/bin/zsh
-# Antidote
-# zstyle ':antidote:bundle' file ${ZDOTDIR:-~}/.zplugins.md
-zstyle ':antidote:bundle' use-friendly-names 'yes'
+# Sourced after `antidote load` (see .zshrc) so these override oh-my-zsh lib defaults.
+# Antidote's own zstyles live in .zshrc since they must be set before loading.
 
 # Enable interactive menu selection
 # zstyle ':completion:*' menu select
@@ -47,10 +46,9 @@ if [[ -r "$HOME/.ssh/config" ]]; then
     }' "$HOME/.ssh/config" | sort -u >| "$_env_ssh_hosts_cache"
   fi
 
-  local -a ssh_hosts
-  ssh_hosts=(${(f)"$(<"$_env_ssh_hosts_cache")"})
-  zstyle ':completion:*:(ssh|scp|sftp):*' hosts $ssh_hosts
+  zstyle ':completion:*:(ssh|scp|sftp):*' hosts ${(f)"$(<"$_env_ssh_hosts_cache")"}
 fi
+unset _env_ssh_hosts_cache
 
 
 # Display better descriptions for options
@@ -81,6 +79,8 @@ zstyle ':completion:*:git-checkout:*' sort false
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 # force zsh not to show completion menu, which allows fzf-tab to capture the unambiguous prefix
 zstyle ':completion:*' menu no
+# oh-my-zsh lib/completion.zsh sets `menu select` on a more specific pattern, which would win
+zstyle -d ':completion:*:*:*:*:*' menu
 # -----------
 #  fzf-tab
 # -----------

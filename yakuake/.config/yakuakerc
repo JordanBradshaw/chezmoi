@@ -3,6 +3,7 @@ BackgroundColorOpacity=15
 HideSkinBorders=true
 Skin=transparent-tabs
 SkinInstalledWithKns=true
+TerminalHighlightOnManualActivation=true
 Translucency=true
 
 [Behavior]

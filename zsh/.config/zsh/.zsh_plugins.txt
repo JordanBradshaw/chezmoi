@@ -9,7 +9,8 @@ getantidote/use-omz
 ohmyzsh/ohmyzsh path:lib
 
 # ─── Belak's Zsh Utils (Lean core helpers) ───────────────────────────────────
-belak/zsh-utils path:editor
+# editor is disabled: key bindings are handled by oh-my-zsh lib + zsh-vi-mode.
+# belak/zsh-utils path:editor
 # belak/zsh-utils path:history
 # belak/zsh-utils path:prompt
 belak/zsh-utils path:utility
@@ -67,8 +68,9 @@ JordanBradshaw/zsh-config kind:zsh branch:plugin
 
 
 zsh-users/zsh-autosuggestions
-zsh-users/zsh-history-substring-search
 
 ohmyzsh/ohmyzsh path:plugins/git
 
+# syntax-highlighting must load before history-substring-search.
 zsh-users/zsh-syntax-highlighting
+zsh-users/zsh-history-substring-search
