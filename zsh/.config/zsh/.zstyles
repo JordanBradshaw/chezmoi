@@ -1,0 +1,122 @@
+#!/bin/zsh
+# Antidote
+# zstyle ':antidote:bundle' file ${ZDOTDIR:-~}/.zplugins.md
+zstyle ':antidote:bundle' use-friendly-names 'yes'
+
+# Enable interactive menu selection
+# zstyle ':completion:*' menu select
+# Auto-refresh function paths when executables are added/removed
+zstyle ':completion:*' rehash true
+# Enable caching for faster completion
+zstyle ':completion:*' use-cache on
+mkdir -p -- "${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
+
+# Smart matching (case/underscore/dot tolerance)
+zstyle ':completion:*' matcher-list \
+  'm:{a-zA-Z}={A-Za-z}' \
+  'r:|[._-]=* r:|=*'
+
+
+# Visual formatting
+# zstyle ':completion:*' format '%B%F{green}─── %d%b%f'
+# zstyle ':completion:*:descriptions' format '%F{cyan}Completing %B%d%b%f'
+# zstyle ':completion:*:messages' format '%B%F{yellow}⇨ %d%b%f'
+# zstyle ':completion:*:warnings' format '%B%F{red}No match for: %d%b%f'
+
+# Prompt when list is too long
+zstyle ':completion:*' list-prompt '%SAt %p: hit TAB for more, or the character to insert%s'
+zstyle ':completion:*' select-prompt '%SScrolling list: current selection at %p%s'
+
+# Custom process list for kill completions
+zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
+# ----------------------
+# SSH: Load SSH hosts from ~/.ssh/config
+# # ------------------------
+# if [[ -r "$HOME/.ssh/config" ]]; then
+#   local ssh_hosts
+#   ssh_hosts=(${(f)"$(awk '/^Host / {for (i=2; i<=NF; i++) print $i}' "$HOME/.ssh/config")"})
+#   zstyle ':completion:*:(ssh|scp|sftp):*' hosts "$ssh_hosts"
+# fi
+_env_ssh_hosts_cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/ssh-hosts.cache"
+
+if [[ -r "$HOME/.ssh/config" ]]; then
+  if [[ ! -r "$_env_ssh_hosts_cache" || "$HOME/.ssh/config" -nt "$_env_ssh_hosts_cache" ]]; then
+    awk '/^[[:space:]]*Host[[:space:]]+/ {
+      for (i=2; i<=NF; i++) if ($i !~ /[*?]/) print $i
+    }' "$HOME/.ssh/config" | sort -u >| "$_env_ssh_hosts_cache"
+  fi
+
+  local -a ssh_hosts
+  ssh_hosts=(${(f)"$(<"$_env_ssh_hosts_cache")"})
+  zstyle ':completion:*:(ssh|scp|sftp):*' hosts $ssh_hosts
+fi
+
+
+# Display better descriptions for options
+zstyle ':completion:*' auto-description 'specify: %d'
+
+# Sort files and directories separately
+zstyle ':completion:*' file-sort name
+
+# Group results in the menu
+zstyle ':completion:*' group-name ''
+
+# Use additional completion strategies (like fuzzy matching)
+# zstyle ':completion:*' completer _expand _complete _match _ignored
+zstyle ':completion:*' completer _complete _match
+
+# Yes—place all of the completion logic and styles in 10-completion.zsh and you’ll have a clean, modular config. Just make sure it’s loaded after antidote load, so that fpath-completions from bundled plugins are available.
+
+# Let me know if you want to validate the load order or ensure nothing gets skipped.
+
+# Git-specific completion options
+zstyle ':completion:*:*:git:*' group-name ''
+zstyle ':completion:*:*:git:*' tag-order 'common-commands' 'main'
+# disable sort when completing `git checkout`
+zstyle ':completion:*:git-checkout:*' sort false
+# set descriptions format to enable group support
+
+# set list-colors to enable filename colorizing
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+# force zsh not to show completion menu, which allows fzf-tab to capture the unambiguous prefix
+zstyle ':completion:*' menu no
+# -----------
+#  fzf-tab
+# -----------
+# this will use default fzf
+zstyle ':fzf-tab:*' fzf-command fzf
+zstyle ':fzf-tab:*' continuous-trigger '/'
+# preview directory's content with eza when completing cd
+# zstyle ':fzf-tab:complete:cd:*' fzf-preview 'lsd -1 --color=always $realpath'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'command lsd -1 --color=always $realpath 2>/dev/null || command ls -1 $realpath'
+
+# custom fzf flags
+# NOTE: fzf-tab does not follow FZF_DEFAULT_OPTS by default
+function _center_desc() {
+  emulate -L zsh
+  local width=${COLUMNS:-80}
+  local text="[$1]"
+  local pad=$(( (width - ${#text}) / 2 ))
+  printf "%${pad}s%s\n" '' "$text"
+}
+
+# NOTE: don't use escape sequences (like '%F{red}%d%f') here, fzf-tab will ignore them
+zstyle ':completion:*:descriptions' format '[%d]'
+# zstyle ':completion:*:descriptions' format "$(_center_desc '%d')"
+
+zstyle ':fzf-tab:*' fzf-flags \
+--color=fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8 \
+--color=fg+:#ffffff,bg+:#313244,hl+:#f38ba8 \
+--color=info:#89dceb,prompt:#f9e2af,pointer:#f38ba8 \
+--color=marker:#a6e3a1,spinner:#94e2d5,header:#b4befe \
+--info=inline-right --layout=reverse-list --height=60% --border=sharp
+# ,fg+:2 --bind=tab:accept
+# To make fzf-tab follow FZF_DEFAULT_OPTS.
+# NOTE: This may lead to unexpected behavior since some flags break this plugin. See Aloxaf/fzf-tab#455.
+# zstyle ':fzf-tab:*' use-fzf-default-opts yes
+# switch group using `<` and `>`
+zstyle ':fzf-tab:*' switch-group '<' '>'
+
+# Disables annoying behavior
+zstyle ':completion:*' beep no

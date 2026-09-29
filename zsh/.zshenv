@@ -1,0 +1,5 @@
+export PROMPT_SYMBOL=""
+export ZDOTDIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+# export ZSH="${XDG_CONFIG_HOME:-$HOME/.config}/.oh-my-zsh"
+export PATH="$HOME/.local/bin:$PATH"
+[[ ! -f "$HOME/.zshenv.local" ]] || source "$HOME/.zshenv.local"

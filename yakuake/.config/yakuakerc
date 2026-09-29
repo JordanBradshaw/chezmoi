@@ -6,7 +6,9 @@ SkinInstalledWithKns=true
 Translucency=true
 
 [Behavior]
+FocusFollowsMouse=true
 OpenAfterStart=true
+RememberFullscreen=true
 
 [Desktop Entry]
 DefaultProfile=ZSH.profile
@@ -25,7 +27,7 @@ toggle-session-monitor-activity=;\s
 
 [Window]
 DynamicTabTitles=true
-Height=95
+Height=90
 KeepOpenAfterLastSessionCloses=true
 ToggleToFocus=true
-Width=70
+Width=80
