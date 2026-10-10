@@ -52,6 +52,20 @@ install_or_update \
     "https://github.com/EliverLara/Sweet-folders.git" \
     "Sweet-folders"
 
+find ~/.local/share/icons/Sweet-folders \
+    -mindepth 2 -maxdepth 2 \
+    -name index.theme -printf '%h\n' |
+while IFS= read -r dir; do
+    dest="$HOME/.local/share/icons/$(basename "$dir")"
+
+    if [[ ! -e "$dest" ]]; then
+        cp -a -- "$dir" "$dest"
+        echo "Installed $(basename "$dir")"
+    else
+        echo "Skipping existing $(basename "$dir")"
+    fi
+done
+
 echo
 echo "Installation complete."
 echo "Icon directory: $ICON_DIR"
