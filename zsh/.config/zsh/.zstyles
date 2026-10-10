@@ -29,26 +29,7 @@ zstyle ':completion:*' select-prompt '%SScrolling list: current selection at %p%
 
 # Custom process list for kill completions
 zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
-# ----------------------
-# SSH: Load SSH hosts from ~/.ssh/config
-# # ------------------------
-# if [[ -r "$HOME/.ssh/config" ]]; then
-#   local ssh_hosts
-#   ssh_hosts=(${(f)"$(awk '/^Host / {for (i=2; i<=NF; i++) print $i}' "$HOME/.ssh/config")"})
-#   zstyle ':completion:*:(ssh|scp|sftp):*' hosts "$ssh_hosts"
-# fi
-_env_ssh_hosts_cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/ssh-hosts.cache"
-
-if [[ -r "$HOME/.ssh/config" ]]; then
-  if [[ ! -r "$_env_ssh_hosts_cache" || "$HOME/.ssh/config" -nt "$_env_ssh_hosts_cache" ]]; then
-    awk '/^[[:space:]]*Host[[:space:]]+/ {
-      for (i=2; i<=NF; i++) if ($i !~ /[*?]/) print $i
-    }' "$HOME/.ssh/config" | sort -u >| "$_env_ssh_hosts_cache"
-  fi
-
-  zstyle ':completion:*:(ssh|scp|sftp):*' hosts ${(f)"$(<"$_env_ssh_hosts_cache")"}
-fi
-unset _env_ssh_hosts_cache
+# SSH host/user completion lives in the zsh-config plugin (conf.d/50-completion.zsh).
 
 
 # Display better descriptions for options
@@ -60,13 +41,9 @@ zstyle ':completion:*' file-sort name
 # Group results in the menu
 zstyle ':completion:*' group-name ''
 
-# Use additional completion strategies (like fuzzy matching)
-# zstyle ':completion:*' completer _expand _complete _match _ignored
-zstyle ':completion:*' completer _complete _match
-
-# Yes—place all of the completion logic and styles in 10-completion.zsh and you’ll have a clean, modular config. Just make sure it’s loaded after antidote load, so that fpath-completions from bundled plugins are available.
-
-# Let me know if you want to validate the load order or ensure nothing gets skipped.
+# Completion strategies: *.ext<TAB> extensions, normal, glob match, typo
+# correction (max-errors is set in the zsh-config plugin)
+zstyle ':completion:*' completer _extensions _complete _match _approximate
 
 # Git-specific completion options
 zstyle ':completion:*:*:git:*' group-name ''
@@ -93,17 +70,9 @@ zstyle ':fzf-tab:complete:cd:*' fzf-preview 'command lsd -1 --color=always $real
 
 # custom fzf flags
 # NOTE: fzf-tab does not follow FZF_DEFAULT_OPTS by default
-function _center_desc() {
-  emulate -L zsh
-  local width=${COLUMNS:-80}
-  local text="[$1]"
-  local pad=$(( (width - ${#text}) / 2 ))
-  printf "%${pad}s%s\n" '' "$text"
-}
 
 # NOTE: don't use escape sequences (like '%F{red}%d%f') here, fzf-tab will ignore them
 zstyle ':completion:*:descriptions' format '[%d]'
-# zstyle ':completion:*:descriptions' format "$(_center_desc '%d')"
 
 zstyle ':fzf-tab:*' fzf-flags \
 --color=fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8 \

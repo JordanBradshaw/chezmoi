@@ -69,3 +69,7 @@ done
 echo
 echo "Installation complete."
 echo "Icon directory: $ICON_DIR"
+
+kbuildsycoca6 --noincremental
+
+kwriteconfig6 --file "kdeglobals --group Icons --key Theme candy-icons

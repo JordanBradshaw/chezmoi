@@ -2,10 +2,189 @@
 
 set -euo pipefail
 # ---------------------------------------------------------------------------
-# Packages
+# Apps
 # ---------------------------------------------------------------------------
-# git-delta lsd bat fzf fonts-firacode procs 
-# mlr nushell gh tailspin
+# Usage: ./bootstrap.sh apps [--extra]
+#
+#   core   Tools the shell config relies on. Always installed.
+#   extra  Fonts, TUIs and heavier tools. Installed with --extra, but skipped
+#          inside containers unless APPS_FORCE_EXTRA=1.
+#
+#   DRY_RUN=1 prints the commands instead of running them.
+#
+# Columns: tier name apt pacman dnf brew eget
+#   "-"   not packaged for that manager.
+#   eget  "owner/repo:binary[:asset]", used when the package is unavailable or
+#         fails. asset picks one release file when several match.
+APPS=(
+    "core   curl      curl            curl           curl            curl            -"
+    "core   git       git             git            git             git             -"
+    "core   unzip     unzip           unzip          unzip           unzip           -"
+    "core   stow      stow            stow           stow            stow            -"
+    "core   fzf       fzf             fzf            fzf             fzf             -"
+    "core   bat       bat             bat            bat             bat             -"
+    "core   lsd       lsd             lsd            lsd             lsd             -"
+    "core   ripgrep   ripgrep         ripgrep        ripgrep         ripgrep         -"
+    "core   fd        fd-find         fd             fd-find         fd              -"
+    "core   delta     git-delta       git-delta      git-delta       git-delta       -"
+    "core  firacode  fonts-firacode  ttf-fira-code  fira-code-fonts font-fira-code  -"
+    "extra  miller    miller          miller         miller          miller          -"
+    "extra  nushell   -               nushell        -               nushell         nushell/nushell:nu:musl"
+    "extra  gh        gh              github-cli     gh              gh              -"
+    "extra  tailspin  tailspin        tailspin       tailspin        tailspin        -"
+    "extra  procs     procs           procs          procs           procs           -"
+    "extra  duf       duf             duf            duf             duf             -"
+    "extra  dust      du-dust         dust           du-dust         dust            -"
+    "extra  btm       btm             bottom         bottom          bottom          -"
+    "extra  htop      htop            htop           htop            htop            -"
+    "extra  tmux      tmux            tmux           tmux            tmux            -"
+    "extra  starship  starship        starship       starship        starship        -"
+    "extra  atuin     atuin           atuin          atuin           atuin           -"
+    "extra  micro     micro           micro          micro           micro           -"
+    "extra  neovim    neovim          neovim         neovim          neovim          -"
+    "extra  most      most            most           most            most            -"
+)
+
+run() {
+    if [[ -n ${DRY_RUN:-} ]]; then
+        echo "+ $*"
+    else
+        "$@"
+    fi
+}
+
+is_container() {
+    [[ -f /.dockerenv || -f /run/.containerenv \
+        || -n ${REMOTE_CONTAINERS:-} || -n ${CODESPACES:-} ]]
+}
+
+detect_pkg_manager() {
+    local pm
+    for pm in pacman apt-get dnf brew; do
+        if command -v "$pm" >/dev/null 2>&1; then
+            echo "${pm%-get}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# install_eget "owner/repo:binary[:asset]"
+install_eget() {
+    local repo bin asset
+    IFS=: read -r repo bin asset <<<"$1"
+
+    if command -v "$bin" >/dev/null 2>&1; then
+        echo "$bin is already installed, skipping eget."
+        return 0
+    fi
+    if ! command -v eget >/dev/null 2>&1; then
+        echo "Error: eget is required to install $repo." >&2
+        return 1
+    fi
+    if [[ -z ${EGET_GITHUB_TOKEN:-} ]] && command -v gh >/dev/null 2>&1; then
+        EGET_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+        export EGET_GITHUB_TOKEN
+    fi
+
+    mkdir -p "$HOME/.local/bin"
+    run eget "$repo" --file "$bin" ${asset:+--asset "$asset"} --to "$HOME/.local/bin"
+}
+
+install_apps() {
+    local extra=0 arg
+    for arg in "$@"; do
+        case "$arg" in
+            --extra) extra=1 ;;
+            *)
+                echo "Usage: $0 apps [--extra]" >&2
+                return 2
+                ;;
+        esac
+    done
+
+    if (( extra )) && is_container && [[ -z ${APPS_FORCE_EXTRA:-} ]]; then
+        echo "Running in a container: skipping extra apps (set APPS_FORCE_EXTRA=1 to install them)."
+        extra=0
+    fi
+
+    local pm
+    if ! pm="$(detect_pkg_manager)"; then
+        echo "Error: No supported package manager was found." >&2
+        return 1
+    fi
+
+    local -a sudo=()
+    if [[ $pm != brew && $EUID -ne 0 ]]; then
+        if ! command -v sudo >/dev/null 2>&1; then
+            echo "Error: Root privileges are required, but sudo is unavailable." >&2
+            return 1
+        fi
+        sudo=(sudo)
+    fi
+
+    local col
+    local -a install
+    case "$pm" in
+        apt)
+            col=2
+            install=(apt-get install -y --no-install-recommends)
+            export DEBIAN_FRONTEND=noninteractive
+            ;;
+        pacman) col=3; install=(pacman -S --needed --noconfirm) ;;
+        dnf)    col=4; install=(dnf install -y) ;;
+        brew)   col=5; install=(brew install) ;;
+    esac
+    echo "Package manager: $pm"
+
+    local row pkg spec
+    local -a fields pkgs=() egets=() failed=()
+    local -A fallback=()
+    for row in "${APPS[@]}"; do
+        read -r -a fields <<<"$row"
+        if [[ ${fields[0]} == extra ]] && (( ! extra )); then
+            continue
+        fi
+        pkg="${fields[col]}"
+        spec="${fields[6]}"
+        if [[ $pkg != - ]]; then
+            pkgs+=("$pkg")
+            [[ $spec != - ]] && fallback[$pkg]="$spec"
+        elif [[ $spec != - ]]; then
+            egets+=("$spec")
+        else
+            failed+=("${fields[1]}")
+        fi
+    done
+
+    if [[ $pm == apt ]]; then
+        run "${sudo[@]}" apt-get update
+    fi
+
+    if ! run "${sudo[@]}" "${install[@]}" "${pkgs[@]}"; then
+        echo "Batch install failed, retrying one package at a time..."
+        for pkg in "${pkgs[@]}"; do
+            if run "${sudo[@]}" "${install[@]}" "$pkg"; then
+                continue
+            elif [[ -n ${fallback[$pkg]:-} ]]; then
+                egets+=("${fallback[$pkg]}")
+            else
+                failed+=("$pkg")
+            fi
+        done
+    fi
+
+    for spec in "${egets[@]}"; do
+        install_eget "$spec" || failed+=("${spec%%:*}")
+    done
+
+    if (( ${#failed[@]} )); then
+        echo "Failed to install: ${failed[*]}" >&2
+        return 1
+    fi
+    echo "Apps installed."
+}
+
 # ---------------------------------------------------------------------------
 # Requirements
 # ---------------------------------------------------------------------------
@@ -84,6 +263,12 @@ install_stow() {
 
     echo "GNU Stow installed successfully."
 }
+
+if [[ ${1:-} == apps ]]; then
+    shift
+    install_apps "$@"
+    exit
+fi
 
 install_stow
 # if ! command -v stow >/dev/null 2>&1; then
