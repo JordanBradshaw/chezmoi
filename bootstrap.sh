@@ -129,12 +129,12 @@ case "${1:-}" in
             zsh starship atuin
         ;;
 
-    cli)
-        stow \
-            -d "$DOTFILES_DIR/cli" \
-            -t "$TARGET" \
-            bat btop lsd ripgrep micro
-        ;;
+    # cli)
+    #     stow \
+    #         -d "$DOTFILES_DIR/cli" \
+    #         -t "$TARGET" \
+    #         bat btop lsd ripgrep micro
+        # ;;
 
     gui)
         stow \
@@ -145,7 +145,9 @@ case "${1:-}" in
 
 
     *)
-        echo "Usage: $0 {terminal|shell|cli}" >&2
-        exit 1
+        stow \
+            -d "$DOTFILES_DIR" \
+            -t "$TARGET" \
+            -v $@
         ;;
 esac
