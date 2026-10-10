@@ -44,13 +44,20 @@ asset_filters = [ "tar.gz", "^.sbom.json" ]
 ["rgwood/systemctl-tui"]
 
 ["orhun/systeroid"]
-
 asset_filters = [ "x86_64", "gnu", "all-features", "tar.gz", "^.sha512", "^.sig" ]
 
 ["depot/cli"]
+file = "bin/depot"
 
 ["mikeleppane/envx"]
 asset_filters = [ "amd64", "static" ]
 
 ["alajmo/sake"]
 asset_filters = [ "amd64" ]
+
+["neovim/neovim"]
+asset_filters = ["x86_64", "linux", "tar.gz"]
+file = "nvim-linux-x86_64/bin/nvim"
+
+["denilsonsa/prettyping"]
+aaset_filters = ["tar.gz"]
