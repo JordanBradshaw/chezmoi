@@ -114,24 +114,24 @@ setup_nala() {
 
     # `nala fetch --auto` still prompts when its mirror list exists, so only
     # run it once; stdin is closed so it can never wait for input.
-    if [[ ! -e $sources ]]; then
-        echo "Picking the fastest mirrors with nala fetch..."
-        if run "$@" nala fetch --auto </dev/null; then
-            run "$@" nala update
-        else
-            echo "nala fetch failed, keeping the current mirrors." >&2
-        fi
-    fi
+    # if [[ ! -e $sources ]]; then
+    #     echo "Picking the fastest mirrors with nala fetch..."
+    #     if run "$@" nala fetch --auto </dev/null; then
+    #         run "$@" nala update
+    #     else
+    #         echo "nala fetch failed, keeping the current mirrors." >&2
+    #     fi
+    # fi
 }
 
 install_apps() {
-    local extra=0 nala=1 arg
+    local extra=1 nala=1 arg
     for arg in "$@"; do
         case "$arg" in
-            --extra) extra=1 ;;
+            --no-extra) extra=0 ;;
             --no-nala) nala=0 ;;
             *)
-                echo "Usage: $0 apps [--extra] [--no-nala]" >&2
+                echo "Usage: $0 apps [--no-extra] [--no-nala]" >&2
                 return 2
                 ;;
         esac
