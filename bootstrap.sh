@@ -19,8 +19,9 @@ set -euo pipefail
 #
 # Columns: tier name apt pacman dnf brew eget
 #   "-"   not packaged for that manager.
-#   eget  "owner/repo:binary[:asset]", used when the package is unavailable or
-#         fails. asset picks one release file when several match.
+#   eget  "owner/repo:binary[:asset[,asset...]]", used when the package is
+#         unavailable or fails. Each asset filter narrows the release files;
+#         a leading ^ excludes matches.
 APPS=(
     "core   curl      curl            curl           curl            curl            -"
     "core   git       git             git            git             git             -"
@@ -33,6 +34,9 @@ APPS=(
     "core   ripgrep   ripgrep         ripgrep        ripgrep         ripgrep         -"
     "core   fd        fd-find         fd             fd-find         fd              -"
     "core   delta     git-delta       git-delta      git-delta       git-delta       -"
+    "core   zoxide    zoxide          zoxide         zoxide          zoxide          ajeetdsouza/zoxide:zoxide:musl"
+    "core   atuin     atuin           atuin          atuin           atuin           atuinsh/atuin:atuin:gnu.tar.gz,^server"
+    "core   direnv    direnv          direnv         direnv          direnv          direnv/direnv:direnv"
     "core  firacode  fonts-firacode  ttf-fira-code  fira-code-fonts font-fira-code  -"
     "extra  miller    miller          miller         miller          miller          -"
     "extra  nushell   -               nushell        -               nushell         nushell/nushell:nu:musl"
@@ -45,7 +49,6 @@ APPS=(
     "extra  htop      htop            htop           htop            htop            -"
     "extra  tmux      tmux            tmux           tmux            tmux            -"
     "extra  starship  starship        starship       starship        starship        -"
-    "extra  atuin     atuin           atuin          atuin           atuin           -"
     "extra  micro     micro           micro          micro           micro           -"
     "extra  neovim    neovim          neovim         neovim          neovim          -"
     "extra  most      most            most           most            most            -"
@@ -75,10 +78,10 @@ detect_pkg_manager() {
     return 1
 }
 
-# install_eget "owner/repo:binary[:asset]"
+# install_eget "owner/repo:binary[:asset[,asset...]]"
 install_eget() {
-    local repo bin asset
-    IFS=: read -r repo bin asset <<<"$1"
+    local repo bin assets filter
+    IFS=: read -r repo bin assets <<<"$1"
 
     if command -v "$bin" >/dev/null 2>&1; then
         echo "$bin is already installed, skipping eget."
@@ -94,7 +97,14 @@ install_eget() {
     fi
 
     mkdir -p "$HOME/.local/bin"
-    run eget "$repo" --file "$bin" ${asset:+--asset "$asset"} --to "$HOME/.local/bin"
+    local -a asset_args=() filters=()
+    if [[ -n $assets ]]; then
+        IFS=, read -r -a filters <<<"$assets"
+        for filter in "${filters[@]}"; do
+            asset_args+=(--asset "$filter")
+        done
+    fi
+    run eget "$repo" --file "$bin" "${asset_args[@]}" --to "$HOME/.local/bin"
 }
 
 # setup_nala [SUDO...] - make sure nala is installed and has fast mirrors.
