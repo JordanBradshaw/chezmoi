@@ -1,0 +1,45 @@
+# eza theme matching ../lsd/colors.yaml (Dracula). lsd's 256-colour numbers
+# are written as their hex values. File name colours still come from LS_COLORS.
+#
+# eza has one date colour and one punctuation colour (permission dashes,
+# tree edges), so lsd's per-age dates and separate tree-edge colour collapse.
+
+users:
+  user_you: {foreground: "#afffff"}      # 159 cyan
+  user_root: {foreground: "#afffff"}
+  user_other: {foreground: "#afffff"}
+  group_yours: {foreground: "#ffffff"}   # 231 foreground
+  group_root: {foreground: "#ffffff"}
+  group_other: {foreground: "#ffffff"}
+
+perms:
+  user_read: {foreground: "#d7afff"}     # 183 blue
+  group_read: {foreground: "#d7afff"}
+  other_read: {foreground: "#d7afff"}
+  user_write: {foreground: "#ff87d7"}    # 212 magenta
+  group_write: {foreground: "#ff87d7"}
+  other_write: {foreground: "#ff87d7"}
+  user_execute_file: {foreground: "#afffff"}   # 159 cyan
+  user_execute_other: {foreground: "#afffff"}
+  group_execute: {foreground: "#afffff"}
+  other_execute: {foreground: "#afffff"}
+  special_user_file: {foreground: "#afffff"}
+  special_other: {foreground: "#afffff"}
+
+size:
+  number_byte: {foreground: "#87ff87"}   # 120 green (small)
+  number_kilo: {foreground: "#87ff87"}
+  number_mega: {foreground: "#ffaf5f"}   # 215 orange (medium)
+  number_giga: {foreground: "#ff8787"}   # 210 red (large)
+  number_huge: {foreground: "#ff8787"}
+  unit_byte: {foreground: "#87ff87"}
+  unit_kilo: {foreground: "#87ff87"}
+  unit_mega: {foreground: "#ffaf5f"}
+  unit_giga: {foreground: "#ff8787"}
+  unit_huge: {foreground: "#ff8787"}
+
+date: {foreground: "#8787af"}            # 103 comment
+inode: {foreground: "#ffffff"}           # 231 foreground
+punctuation: {foreground: "#5f5f87"}     # 60 current line
+symlink_path: {foreground: "#afffff"}    # 159 cyan
+broken_symlink: {foreground: "#ff8787"}  # 210 red
