@@ -1,0 +1,4 @@
+# direnv settings. See `man direnv.toml`.
+[global]
+# Print "direnv: loading .envrc" but not the full list of changed variables.
+hide_env_diff = true
