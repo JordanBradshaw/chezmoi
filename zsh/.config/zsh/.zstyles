@@ -11,8 +11,10 @@ zstyle ':completion:*' use-cache on
 mkdir -p -- "${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
 zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
 
-# Smart matching (case/underscore/dot tolerance)
+# Matching: exact case first; ignore case only when nothing matches, then
+# allow partial words around . _ -
 zstyle ':completion:*' matcher-list \
+  '' \
   'm:{a-zA-Z}={A-Za-z}' \
   'r:|[._-]=* r:|=*'
 
@@ -54,8 +56,10 @@ zstyle ':completion:*:git-checkout:*' sort false
 
 # set list-colors to enable filename colorizing
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
-# force zsh not to show completion menu, which allows fzf-tab to capture the unambiguous prefix
-zstyle ':completion:*' menu no
+# `menu yes` makes zsh report a menu insert, so fzf-tab opens on the first Tab
+# instead of inserting the common prefix (e.g. tem -> temp) and waiting for a
+# second Tab. Use `menu no` to get the prefix-first behaviour back.
+zstyle ':completion:*' menu yes
 # oh-my-zsh lib/completion.zsh sets `menu select` on a more specific pattern, which would win
 zstyle -d ':completion:*:*:*:*:*' menu
 # -----------
@@ -66,7 +70,7 @@ zstyle ':fzf-tab:*' fzf-command fzf
 zstyle ':fzf-tab:*' continuous-trigger '/'
 # preview directory's content with eza when completing cd
 # zstyle ':fzf-tab:complete:cd:*' fzf-preview 'lsd -1 --color=always $realpath'
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'command lsd -1 --color=always $realpath 2>/dev/null || command ls -1 $realpath'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'command eza -1 --color=always --icons=always -- $realpath 2>/dev/null || command lsd -1 --color=always -- $realpath 2>/dev/null || command ls -1 -- $realpath'
 
 # custom fzf flags
 # NOTE: fzf-tab does not follow FZF_DEFAULT_OPTS by default
@@ -74,12 +78,17 @@ zstyle ':fzf-tab:complete:cd:*' fzf-preview 'command lsd -1 --color=always $real
 # NOTE: don't use escape sequences (like '%F{red}%d%f') here, fzf-tab will ignore them
 zstyle ':completion:*:descriptions' format '[%d]'
 
+# Catppuccin Mocha; bg:-1 keeps the terminal's own background.
 zstyle ':fzf-tab:*' fzf-flags \
---color=fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8 \
+--color=fg:#cdd6f4,bg:-1,hl:#f38ba8 \
 --color=fg+:#ffffff,bg+:#313244,hl+:#f38ba8 \
 --color=info:#89dceb,prompt:#f9e2af,pointer:#f38ba8 \
 --color=marker:#a6e3a1,spinner:#94e2d5,header:#b4befe \
---info=inline-right --layout=reverse-list --height=60% --border=sharp
+--color=border:#585b70,label:#cba6f7 \
+--pointer='▶' --marker='✓' \
+--border=rounded --border-label=' complete ' \
+--preview-window=right:55%:wrap:border-left \
+--info=inline-right --layout=reverse-list --height=60%
 # ,fg+:2 --bind=tab:accept
 # To make fzf-tab follow FZF_DEFAULT_OPTS.
 # NOTE: This may lead to unexpected behavior since some flags break this plugin. See Aloxaf/fzf-tab#455.

@@ -4,11 +4,16 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Apps
 # ---------------------------------------------------------------------------
-# Usage: ./bootstrap.sh apps [--extra]
+# Usage: ./bootstrap.sh apps [--extra] [--no-nala]
 #
 #   core   Tools the shell config relies on. Always installed.
 #   extra  Fonts, TUIs and heavier tools. Installed with --extra, but skipped
 #          inside containers unless APPS_FORCE_EXTRA=1.
+#
+#   On apt systems nala is installed first and used for the batch (parallel
+#   downloads; `nala fetch` picks fast mirrors once). --no-nala keeps apt-get;
+#   containers use apt-get unless APPS_FORCE_NALA=1. A nala failure falls back
+#   to apt-get.
 #
 #   DRY_RUN=1 prints the commands instead of running them.
 #
@@ -23,6 +28,7 @@ APPS=(
     "core   stow      stow            stow           stow            stow            -"
     "core   fzf       fzf             fzf            fzf             fzf             -"
     "core   bat       bat             bat            bat             bat             -"
+    "core   eza       eza             eza            eza             eza             eza-community/eza:eza:gnu.tar.gz"
     "core   lsd       lsd             lsd            lsd             lsd             -"
     "core   ripgrep   ripgrep         ripgrep        ripgrep         ripgrep         -"
     "core   fd        fd-find         fd             fd-find         fd              -"
@@ -91,13 +97,41 @@ install_eget() {
     run eget "$repo" --file "$bin" ${asset:+--asset "$asset"} --to "$HOME/.local/bin"
 }
 
+# setup_nala [SUDO...] - make sure nala is installed and has fast mirrors.
+# Succeeds when nala can be used. Fetching mirrors is best effort.
+setup_nala() {
+    local sources=${APPS_NALA_SOURCES:-/etc/apt/sources.list.d/nala-sources.list}
+
+    if ! command -v nala >/dev/null 2>&1; then
+        echo "Installing nala for parallel downloads..."
+        # A dry run never installs nala, so carry on as if it had.
+        if ! run "$@" apt-get install -y --no-install-recommends nala \
+            || { [[ -z ${DRY_RUN:-} ]] && ! command -v nala >/dev/null 2>&1; }; then
+            echo "nala is unavailable, using apt-get." >&2
+            return 1
+        fi
+    fi
+
+    # `nala fetch --auto` still prompts when its mirror list exists, so only
+    # run it once; stdin is closed so it can never wait for input.
+    if [[ ! -e $sources ]]; then
+        echo "Picking the fastest mirrors with nala fetch..."
+        if run "$@" nala fetch --auto </dev/null; then
+            run "$@" nala update
+        else
+            echo "nala fetch failed, keeping the current mirrors." >&2
+        fi
+    fi
+}
+
 install_apps() {
-    local extra=0 arg
+    local extra=0 nala=1 arg
     for arg in "$@"; do
         case "$arg" in
             --extra) extra=1 ;;
+            --no-nala) nala=0 ;;
             *)
-                echo "Usage: $0 apps [--extra]" >&2
+                echo "Usage: $0 apps [--extra] [--no-nala]" >&2
                 return 2
                 ;;
         esac
@@ -159,9 +193,19 @@ install_apps() {
 
     if [[ $pm == apt ]]; then
         run "${sudo[@]}" apt-get update
+        if (( nala )) && is_container && [[ -z ${APPS_FORCE_NALA:-} ]]; then
+            echo "Running in a container: using apt-get (set APPS_FORCE_NALA=1 to use nala)."
+        elif (( nala )) && setup_nala "${sudo[@]}"; then
+            install=(nala install -y --no-install-recommends)
+        fi
     fi
 
     if ! run "${sudo[@]}" "${install[@]}" "${pkgs[@]}"; then
+        # Retry with apt-get: its exit codes are reliable per package.
+        if [[ ${install[0]} == nala ]]; then
+            echo "nala failed, retrying with apt-get..."
+            install=(apt-get install -y --no-install-recommends)
+        fi
         echo "Batch install failed, retrying one package at a time..."
         for pkg in "${pkgs[@]}"; do
             if run "${sudo[@]}" "${install[@]}" "$pkg"; then

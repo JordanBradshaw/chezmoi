@@ -1,4 +1,6 @@
 #!/bin/zsh
+# `zsh-prof` sets ZSH_PROF to profile startup; this must stay first.
+[[ -n $ZSH_PROF ]] && zmodload zsh/zprof
 color_prompt=yes
 
 # Antidote settings must be in place before `antidote load`.
@@ -32,3 +34,6 @@ fi
 if [ -f ~/.aliases ]; then
     . ~/.aliases
 fi
+
+# Machine-specific setup (installer PATH blocks such as pnpm) stays out of the repo.
+[[ ! -f ${ZDOTDIR:-$HOME}/.zshrc.local ]] || source ${ZDOTDIR:-$HOME}/.zshrc.local
