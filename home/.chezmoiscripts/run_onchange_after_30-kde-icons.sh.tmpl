@@ -1,0 +1,5 @@
+{{ if eq .machine "desktop" -}}
+#!/usr/bin/env bash
+# .chezmoiexternal.toml.tmpl hash: {{ include ".chezmoiexternal.toml.tmpl" | sha256sum }}
+kbuildsycoca6 --noincremental
+{{ end -}}

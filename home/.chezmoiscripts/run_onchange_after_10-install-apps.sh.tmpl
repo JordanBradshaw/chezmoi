@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# install-apps.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/install-apps.sh") | sha256sum }}
+exec "{{ .chezmoi.workingTree }}/scripts/install-apps.sh" --machine {{ .machine }}

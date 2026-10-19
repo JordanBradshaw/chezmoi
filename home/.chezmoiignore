@@ -1,0 +1,10 @@
+{{ if ne .machine "desktop" }}
+.local/share/konsole
+.local/share/yakuake
+.local/share/icons
+.config/libinput-gestures.conf
+.config/latte
+{{ end }}
+{{ if not .hasSecrets }}
+.config/secrets
+{{ end }}

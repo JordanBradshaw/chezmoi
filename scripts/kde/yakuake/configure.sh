@@ -11,14 +11,6 @@ if ! command -v kwriteconfig6 &>/dev/null; then
     exit 1
 fi
 
-# ─── Backup ──────────────────────────────────────────────────────────────────
-
-if [[ -f "$CONFIG" ]]; then
-    BACKUP="${CONFIG}.bak.$(date +%Y%m%d-%H%M%S)"
-    cp "$CONFIG" "$BACKUP"
-    echo "Backup created: $BACKUP"
-fi
-
 # ─── Configuration Helper ────────────────────────────────────────────────────
 
 set_config() {
@@ -71,8 +63,37 @@ echo
 echo "Configuring Window..."
 
 set_config Window DynamicTabTitles true bool
+set_config Window Height 100 int
 set_config Window KeepOpenAfterLastSessionCloses true bool
 set_config Window ToggleToFocus true bool
+
+# ─── Shortcuts ───────────────────────────────────────────────────────────────
+
+echo
+echo "Configuring Shortcuts..."
+
+set_config Shortcuts close-active-terminal 'Ctrl+Shift+R; Ctrl+Shift+Q'
+set_config Shortcuts decrease-window-height 'Ctrl+Alt+Shift+Up'
+set_config Shortcuts decrease-window-width 'Ctrl+Alt+Shift+Left'
+set_config Shortcuts increase-window-height 'Ctrl+Alt+Shift+Down'
+set_config Shortcuts increase-window-width 'Ctrl+Alt+Shift+Right'
+set_config Shortcuts new-session 'Ctrl+Shift+T; Ctrl+Shift+N'
+set_config Shortcuts next-session 'Shift+Right; Ctrl+Shift+Right'
+set_config Shortcuts next-terminal 'Ctrl+Tab; Ctrl+Shift+Down'
+set_config Shortcuts previous-session 'Shift+Left; Ctrl+Shift+Left'
+set_config Shortcuts previous-terminal 'Ctrl+Shift+Tab; Ctrl+Shift+Up'
+set_config Shortcuts split-left-right 'Ctrl++'
+set_config Shortcuts split-top-bottom 'Ctrl+_'
+set_config Shortcuts switch-to-session-1 'Alt+1; Ctrl+!'
+set_config Shortcuts switch-to-session-2 'Alt+2; Ctrl+@'
+set_config Shortcuts switch-to-session-3 'Alt+3; Ctrl+#'
+set_config Shortcuts switch-to-session-4 'Alt+4; Ctrl+$'
+set_config Shortcuts switch-to-session-5 'Alt+5; Ctrl+%'
+set_config Shortcuts switch-to-session-6 'Alt+6; Ctrl+^'
+set_config Shortcuts switch-to-session-7 'Alt+7; Ctrl+&'
+set_config Shortcuts switch-to-session-8 'Alt+8; Ctrl+*'
+set_config Shortcuts switch-to-session-9 'Alt+9; Ctrl+('
+set_config Shortcuts switch-to-session-10 'Alt+0; Ctrl+)'
 
 # ─── Complete ────────────────────────────────────────────────────────────────
 
