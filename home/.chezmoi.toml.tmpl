@@ -27,3 +27,15 @@ encryption = "age"
 [data]
     machine = {{ $machine | quote }}
     hasSecrets = {{ $hasSecrets }}
+
+[git]
+    autoAdd = true
+    autoCommit = true
+    autoPush = false
+
+[edit]
+    apply = true
+    watch = true
+
+[diff]
+    pager = "delta"
