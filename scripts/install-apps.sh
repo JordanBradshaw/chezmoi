@@ -118,6 +118,35 @@ load_github_token() {
     fi
 }
 
+# ensure_eget: put eget on PATH, downloading it to ~/.local/bin when missing.
+ensure_eget() {
+    command -v eget >/dev/null 2>&1 && return 0
+    if [[ -x $HOME/.local/bin/eget ]]; then
+        PATH="$HOME/.local/bin:$PATH"
+        return 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "Error: eget is missing and curl is unavailable to fetch it." >&2
+        return 1
+    fi
+
+    echo "Installing eget to $HOME/.local/bin..."
+    [[ -n ${DRY_RUN:-} ]] && { echo "+ curl https://zyedidia.github.io/eget.sh | sh"; return 0; }
+    local tmp
+    tmp="$(mktemp -d)"
+    if curl -fsSL https://zyedidia.github.io/eget.sh -o "$tmp/eget.sh" \
+        && (cd "$tmp" && bash eget.sh) && [[ -x $tmp/eget ]]; then
+        mkdir -p "$HOME/.local/bin"
+        mv "$tmp/eget" "$HOME/.local/bin/eget"
+        rm -rf "$tmp"
+        PATH="$HOME/.local/bin:$PATH"
+        return 0
+    fi
+    rm -rf "$tmp"
+    echo "Error: failed to install eget." >&2
+    return 1
+}
+
 # install_eget "owner/repo:binary[:asset[,asset...]]"
 install_eget() {
     local repo bin assets filter
@@ -127,10 +156,7 @@ install_eget() {
         echo "$bin is already installed, skipping eget."
         return 0
     fi
-    if ! command -v eget >/dev/null 2>&1; then
-        echo "Error: eget is required to install $repo." >&2
-        return 1
-    fi
+    ensure_eget || return 1
     load_github_token
 
     mkdir -p "$HOME/.local/bin"
