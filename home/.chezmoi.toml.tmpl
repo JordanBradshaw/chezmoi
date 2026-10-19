@@ -16,6 +16,7 @@
 {{- $identity := joinPath .chezmoi.homeDir ".config/chezmoi/key.txt" -}}
 {{- $hasSecrets := and (ne $machine "container") (stat $identity | not | not) -}}
 
+sourceDir = {{ .chezmoi.workingTree | quote }}
 encryption = "age"
 
 [age]
