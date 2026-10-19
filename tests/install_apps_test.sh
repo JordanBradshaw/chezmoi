@@ -336,6 +336,45 @@ test_eza_falls_back_to_eget_release() {
     assert_call "eget eza-community/eza --file eza --asset gnu.tar.gz --to $HOME/.local/bin"
 }
 
+# stub_curl_eget_installer: curl stub that serves an eget.sh installer which
+# drops a logging eget stub into the current directory.
+stub_curl_eget_installer() {
+    cat >"$STUBS/curl" <<'EOF'
+#!/usr/bin/env bash
+echo "curl $*" >>"$STUB_LOG"
+out=""
+while (( $# )); do [[ $1 == -o ]] && out=$2; shift; done
+cat >"$out" <<'INSTALLER'
+printf '#!/usr/bin/env bash\necho "eget $*" >>"$STUB_LOG"\n' >eget
+chmod +x eget
+INSTALLER
+EOF
+    chmod +x "$STUBS/curl"
+    local tool
+    for tool in mktemp chmod mv rm cat; do
+        ln -s "$(command -v "$tool")" "$STUBS/$tool"
+    done
+}
+
+test_missing_eget_is_installed_on_demand() {
+    stub apt-get
+    stub_curl_eget_installer
+    export STUB_FAIL_PKGS="eza"
+    run_apps --machine container
+    assert_status 0
+    assert_call_matches "^curl .*zyedidia.github.io/eget.sh"
+    assert_call "eget eza-community/eza --file eza --asset gnu.tar.gz --to $HOME/.local/bin"
+    [[ -x $HOME/.local/bin/eget ]] || fail "eget not installed to ~/.local/bin"
+}
+
+test_missing_eget_without_curl_fails() {
+    stub apt-get
+    export STUB_FAIL_PKGS="eza"
+    run_apps --machine container
+    assert_status 1
+    assert_output_matches "[Ff]ailed.*eza"
+}
+
 # ---------------------------------------------------------------------------
 # GitHub token for eget
 # ---------------------------------------------------------------------------
