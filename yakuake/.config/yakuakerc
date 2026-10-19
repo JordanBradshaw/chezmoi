@@ -12,23 +12,41 @@ OpenAfterStart=true
 RememberFullscreen=true
 
 [Desktop Entry]
-DefaultProfile=ZSH.profile
+DefaultProfile=yupps.profile
 
 [Dialogs]
 FirstRun=false
 
-[KFileDialog Settings]
-detailViewIconSize=16
-
 [Shortcuts]
+close-active-terminal=Ctrl+Shift+R; Ctrl+Shift+Q
+file_quit=;\s
+move-session-left=;\s
+move-session-right=;\s
+new-session=Ctrl+Shift+T; Ctrl+Shift+N
 new-session-two-horizontal=none
-split-left-right=Ctrl++
-split-top-bottom=Ctrl+_
+next-session=Shift+Right; Ctrl+Shift+Right
+next-terminal=Ctrl+Tab; Ctrl+Shift+Down
+previous-session=Shift+Left; Ctrl+Shift+Left
+previous-terminal=Ctrl+Shift+Tab; Ctrl+Shift+Up
+rename-session=none
+split-auto=;\s
+split-left-right=Ctrl++;\s
+split-top-bottom=Ctrl+_;\s
+switch-to-session-1=Alt+1; Ctrl+!
+switch-to-session-10=Alt+0; Ctrl+)
+switch-to-session-2=Alt+2; Ctrl+@
+switch-to-session-3=Alt+3; Ctrl+#
+switch-to-session-4=Alt+4; Ctrl+$
+switch-to-session-5=Alt+5; Ctrl+%
+switch-to-session-6=Alt+6; Ctrl+^
+switch-to-session-7=Alt+7; Ctrl+&
+switch-to-session-8=Alt+8; Ctrl+*
+switch-to-session-9=Alt+9; Ctrl+(
 toggle-session-monitor-activity=;\s
+toggle-session-monitor-silence=none
 
 [Window]
 DynamicTabTitles=true
-Height=90
+Height=100
 KeepOpenAfterLastSessionCloses=true
 ToggleToFocus=true
-Width=80

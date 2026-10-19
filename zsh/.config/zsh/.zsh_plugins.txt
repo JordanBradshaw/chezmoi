@@ -63,7 +63,7 @@ ohmyzsh/ohmyzsh path:plugins/ssh-agent kind:defer
 
 # ─── Utility Plugins ─────────────────────────────────────────────────────────
 # rupa/z
-zpm-zsh/autoenv kind:defer
+# zpm-zsh/autoenv: replaced by direnv (hooked in the zsh-config plugin)
 # mattmc3/zfunctions  # Fish-style functions (commented if unused)
 mattmc3/zshrinkwrap
 # Rakosn1cek/XC-Manager
