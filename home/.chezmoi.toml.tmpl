@@ -1,0 +1,28 @@
+{{- /* Machine type: desktop, server or container. A value saved by an earlier
+       init wins, so edit ~/.config/chezmoi/chezmoi.toml to override it. */ -}}
+{{- $machine := "" -}}
+{{- if hasKey . "machine" -}}
+{{-   $machine = .machine -}}
+{{- else if or (env "CODESPACES") (env "REMOTE_CONTAINERS") (stat "/.dockerenv") (stat "/run/.containerenv") -}}
+{{-   $machine = "container" -}}
+{{- else if lookPath "plasmashell" -}}
+{{-   $machine = "desktop" -}}
+{{- else if stdinIsATTY -}}
+{{-   $machine = promptChoiceOnce . "machine" "Machine type" (list "desktop" "server" "container") -}}
+{{- else -}}
+{{-   $machine = "server" -}}
+{{- end -}}
+
+{{- $identity := joinPath .chezmoi.homeDir ".config/chezmoi/key.txt" -}}
+{{- $hasSecrets := and (ne $machine "container") (stat $identity | not | not) -}}
+
+encryption = "age"
+
+[age]
+    identity = {{ $identity | quote }}
+    recipient = "age1ufuas7zez9ax6mululhrn7vwpz2x554f6dhxs3jtzk0en4kg6u6q58q8eu"
+    useBuiltin = true
+
+[data]
+    machine = {{ $machine | quote }}
+    hasSecrets = {{ $hasSecrets }}

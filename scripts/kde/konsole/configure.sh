@@ -11,14 +11,6 @@ if ! command -v kwriteconfig6 &>/dev/null; then
     exit 1
 fi
 
-# ─── Backup ──────────────────────────────────────────────────────────────────
-
-if [[ -f "$CONFIG" ]]; then
-    BACKUP="${CONFIG}.bak.$(date +%Y%m%d-%H%M%S)"
-    cp "$CONFIG" "$BACKUP"
-    echo "Backup created: $BACKUP"
-fi
-
 # ─── Configuration Helper ────────────────────────────────────────────────────
 
 set_config() {
@@ -32,9 +24,7 @@ set_config() {
     )
 
     # Empty group means root-level configuration
-    if [[ -n "$group" ]]; then
-        args+=(--group "$group")
-    fi
+    args+=(--group "${group:-<default>}")
 
     args+=(
         --key "$key"

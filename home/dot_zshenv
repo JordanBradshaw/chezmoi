@@ -38,4 +38,11 @@ HISTFILE="$HOME/.zsh_history"
 typeset -gU path
 path=("$XDG_BIN_HOME" $path)
 
+# Secrets decrypted by chezmoi as KEY=value lines; absent on machines without the age key.
+if [[ -r $XDG_CONFIG_HOME/secrets/env ]]; then
+  set -a
+  source "$XDG_CONFIG_HOME/secrets/env"
+  set +a
+fi
+
 [[ ! -f "$HOME/.zshenv.local" ]] || source "$HOME/.zshenv.local"
