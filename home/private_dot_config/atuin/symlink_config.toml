@@ -1,4 +1,5 @@
 style = "compact"
+inline_height = 20
 filter_mode = "host"
 enter_accept = true
 show_help = false
