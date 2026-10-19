@@ -32,7 +32,9 @@ setup() {
         ln -s "$(command -v "$tool")" "$STUBS/$tool"
     done
 
-    unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA DRY_RUN STUB_FAIL_PKGS
+    unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN STUB_FAIL_PKGS
+    # No nala mirror list yet, unless a test creates this file.
+    export APPS_NALA_SOURCES="$SANDBOX/nala-sources.list"
     stub sudo
 }
 
@@ -63,6 +65,29 @@ exit 0
 EOF
     fi
     chmod +x "$STUBS/$name"
+}
+
+# stub_apt_get_with_nala: apt-get stub that also "installs" a nala stub when
+# asked for the nala package.
+stub_apt_get_with_nala() {
+    stub nala
+    mv "$STUBS/nala" "$STUBS/.nala"
+    cat >"$STUBS/apt-get" <<EOF
+#!/usr/bin/env bash
+echo "apt-get \$*" >>"\$STUB_LOG"
+if [[ \$1 == install && " \$* " == *" nala "* ]]; then
+    cp "$STUBS/.nala" "$STUBS/nala"
+fi
+exit 0
+EOF
+    sed -i "s|^    cp |    $(command -v cp) -p |" "$STUBS/apt-get"
+    chmod +x "$STUBS/apt-get"
+}
+
+# stub_nala_failing SUBCOMMAND: nala stub that fails for SUBCOMMAND.
+stub_nala_failing() {
+    stub nala
+    sed -i "2a [[ \$1 == $1 ]] \&\& exit 1" "$STUBS/nala"
 }
 
 # Shebangs use /usr/bin/env, so stubs need env and bash on PATH as well.
@@ -130,7 +155,7 @@ run_test() {
 # Tests
 # ---------------------------------------------------------------------------
 
-CORE_APT="curl git unzip stow fzf bat lsd ripgrep fd-find git-delta fonts-firacode"
+CORE_APT="curl git unzip stow fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv fonts-firacode"
 
 test_apt_core_installs_core_in_one_batch() {
     stub apt-get
@@ -188,14 +213,14 @@ test_dnf_uses_dnf_names() {
     stub dnf
     run_apps
     assert_status 0
-    assert_call "dnf install -y curl git unzip stow fzf bat lsd ripgrep fd-find git-delta fira-code-fonts"
+    assert_call "dnf install -y curl git unzip stow fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv fira-code-fonts"
 }
 
 test_brew_runs_without_sudo() {
     stub brew
     run_apps
     assert_status 0
-    assert_call "brew install curl git unzip stow fzf bat lsd ripgrep fd git-delta font-fira-code"
+    assert_call "brew install curl git unzip stow fzf bat eza lsd ripgrep fd git-delta zoxide atuin direnv font-fira-code"
     refute_call_matches "^sudo "
 }
 
@@ -217,6 +242,43 @@ test_failed_install_falls_back_to_eget() {
     run_apps --extra
     assert_status 0
     assert_call "eget nushell/nushell --file nu --asset musl --to $HOME/.local/bin"
+}
+
+# stub_eget_logging: eget stub that only logs. It is called with `--file NAME`,
+# so it must not honour STUB_FAIL_PKGS.
+stub_eget_logging() {
+    printf '#!/usr/bin/env bash\necho "eget $*" >>"$STUB_LOG"\n' >"$STUBS/eget"
+    chmod +x "$STUBS/eget"
+}
+
+test_shell_tools_fall_back_to_eget_releases() {
+    stub apt-get
+    stub_eget_logging
+    export STUB_FAIL_PKGS="zoxide atuin direnv"
+    run_apps --no-nala
+    assert_status 0
+    assert_call "eget ajeetdsouza/zoxide --file zoxide --asset musl --to $HOME/.local/bin"
+    assert_call "eget atuinsh/atuin --file atuin --asset gnu.tar.gz --asset ^server --to $HOME/.local/bin"
+    assert_call "eget direnv/direnv --file direnv --to $HOME/.local/bin"
+}
+
+test_atuin_is_core_not_extra() {
+    stub apt-get
+    stub eget
+    run_apps --extra
+    assert_status 0
+    [[ $(grep -c '^apt-get install .*\batuin\b' "$STUB_LOG") -eq 1 ]] \
+        || fail "atuin should appear in exactly one install batch"
+}
+
+test_eza_falls_back_to_eget_release() {
+    stub apt-get
+    stub_eget_logging
+    export STUB_FAIL_PKGS="eza"
+    run_apps --no-nala
+    assert_status 0
+    assert_call "apt-get install -y --no-install-recommends eza"
+    assert_call "eget eza-community/eza --file eza --asset gnu.tar.gz --to $HOME/.local/bin"
 }
 
 test_container_ignores_extra() {
@@ -243,7 +305,118 @@ test_dry_run_prints_without_running() {
     run_apps
     assert_status 0
     assert_no_calls
+    assert_output_matches "apt-get install -y --no-install-recommends nala$"
+    assert_output_matches "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_dry_run_no_nala_prints_apt_get() {
+    stub apt-get
+    export DRY_RUN=1
+    run_apps --no-nala
+    assert_status 0
+    assert_no_calls
     assert_output_matches "apt-get install -y --no-install-recommends $CORE_APT"
+}
+
+# ---------------------------------------------------------------------------
+# nala (apt only): installed first by default, then used for the batch
+# ---------------------------------------------------------------------------
+
+test_apt_installs_nala_first_and_uses_it() {
+    stub_apt_get_with_nala
+    run_apps
+    assert_status 0
+    assert_call "apt-get update"
+    assert_call "apt-get install -y --no-install-recommends nala"
+    assert_call "nala fetch --auto"
+    assert_call "nala update"
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+    refute_call_matches "^apt-get install .*\bcurl\b"
+}
+
+test_apt_uses_existing_nala() {
+    stub apt-get
+    stub nala
+    run_apps
+    assert_status 0
+    refute_call_matches "^apt-get install .*\bnala\b"
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_nala_fetch_skipped_when_mirrors_already_set() {
+    stub apt-get
+    stub nala
+    : >"$APPS_NALA_SOURCES"
+    run_apps
+    assert_status 0
+    refute_call_matches "^nala fetch"
+    refute_call_matches "^nala update"
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_nala_fetch_failure_is_not_fatal() {
+    stub apt-get
+    stub_nala_failing fetch
+    run_apps
+    assert_status 0
+    refute_call_matches "^nala update"
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_nala_batch_failure_falls_back_to_apt_get() {
+    stub apt-get
+    stub_nala_failing install
+    run_apps
+    assert_status 0
+    assert_call "apt-get install -y --no-install-recommends curl"
+    assert_call "apt-get install -y --no-install-recommends fonts-firacode"
+}
+
+test_nala_unavailable_uses_apt_get() {
+    stub apt-get
+    export STUB_FAIL_PKGS="nala"
+    run_apps
+    assert_status 0
+    refute_call_matches "^nala "
+    assert_call "apt-get install -y --no-install-recommends $CORE_APT"
+    assert_output_matches "nala"
+}
+
+test_no_nala_flag_skips_nala() {
+    stub apt-get
+    stub nala
+    run_apps --no-nala
+    assert_status 0
+    refute_call_matches "^nala "
+    refute_call_matches "^apt-get install .*\bnala\b"
+    assert_call "apt-get install -y --no-install-recommends $CORE_APT"
+}
+
+test_container_skips_nala() {
+    stub apt-get
+    stub nala
+    export REMOTE_CONTAINERS=true
+    run_apps
+    assert_status 0
+    refute_call_matches "^nala "
+    assert_call "apt-get install -y --no-install-recommends $CORE_APT"
+}
+
+test_container_force_nala() {
+    stub apt-get
+    stub nala
+    export REMOTE_CONTAINERS=true APPS_FORCE_NALA=1
+    run_apps
+    assert_status 0
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_nala_not_used_for_other_managers() {
+    stub dnf
+    stub nala
+    run_apps
+    assert_status 0
+    refute_call_matches "^nala "
 }
 
 test_unknown_option_fails() {
