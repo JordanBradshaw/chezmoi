@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#
+# zssh: ssh into a host with this machine's zsh setup, without installing
+# anything there or needing internet on it.
+#
+# Usage: zssh [--rebuild] [--refresh] [ssh options] host
+#
+#   Builds (or reuses) a bundle for the host's CPU with
+#   scripts/portable/build.sh, uploads it over ssh only when it changed, and
+#   starts the bundled zsh. Everything lives in ~/.zsh-portable on the host;
+#   delete that directory to remove it. No secrets are ever bundled.
+#
+#   --rebuild   rebuild the bundle even if the dotfiles didn't change
+#   --refresh   also re-download zsh, tools and plugins
+#
+# Environment:
+#   ZSSH_REMOTE_DIR  bundle dir on the host (default: $HOME/.zsh-portable,
+#                    expanded by the remote shell)
+#   ZSSH_REPO        zsh-config checkout (default: chezmoi's source dir)
+#   ZSSH_BUILDER     build script (default: $ZSSH_REPO/scripts/portable/build.sh)
+
+set -euo pipefail
+
+usage() {
+    sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+build_flags=()
+while (( $# )); do
+    case $1 in
+        --rebuild) build_flags=(--force); shift ;;
+        --refresh) build_flags=(--refresh); shift ;;
+        -h | --help) usage; exit 0 ;;
+        *) break ;;
+    esac
+done
+if (( $# == 0 )); then
+    usage >&2
+    exit 2
+fi
+
+remote_dir=${ZSSH_REMOTE_DIR:-'$HOME/.zsh-portable'}
+
+builder=${ZSSH_BUILDER:-}
+if [[ -z $builder ]]; then
+    repo=${ZSSH_REPO:-}
+    if [[ -z $repo ]]; then
+        repo="$(git -C "$(chezmoi source-path)" rev-parse --show-toplevel)" \
+            || { echo "zssh: set ZSSH_REPO to your zsh-config checkout" >&2; exit 1; }
+    fi
+    builder="$repo/scripts/portable/build.sh"
+fi
+
+# Reuse one connection for the probe, the upload and the session.
+ssh_opts=(
+    -o ControlMaster=auto
+    -o "ControlPath=${XDG_RUNTIME_DIR:-/tmp}/zssh-%C"
+    -o ControlPersist=60
+)
+
+# -n: the probe must not eat keystrokes meant for the session.
+probe="$(ssh -n "${ssh_opts[@]}" "$@" \
+    "uname -m; cat \"$remote_dir/app/VERSION\" 2>/dev/null || true")"
+remote_arch=$(sed -n 1p <<<"$probe")
+remote_version=$(sed -n 2p <<<"$probe")
+
+bundle="$("$builder" --arch "$remote_arch" "${build_flags[@]}" | tail -n1)"
+local_version=$(<"${bundle%.tar.gz}.version")
+
+if [[ $local_version != "$remote_version" ]]; then
+    echo "zssh: uploading bundle $local_version ($(du -h "$bundle" | cut -f1))" >&2
+    ssh "${ssh_opts[@]}" "$@" "set -e
+d=\"$remote_dir\"
+mkdir -p \"\$d/state\"
+d=\$(cd \"\$d\" && pwd)
+rm -rf \"\$d/app.new\" \"\$d/app.old\"
+mkdir \"\$d/app.new\"
+tar -xzf - -C \"\$d/app.new\"
+sh \"\$d/app.new/setup.sh\" \"\$d/app\"
+if [ -d \"\$d/app\" ]; then mv \"\$d/app\" \"\$d/app.old\"; fi
+mv \"\$d/app.new\" \"\$d/app\"
+rm -rf \"\$d/app.old\"" <"$bundle"
+fi
+
+exec ssh -t "${ssh_opts[@]}" "$@" "exec \"$remote_dir/app/enter\""
