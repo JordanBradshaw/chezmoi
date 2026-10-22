@@ -31,7 +31,8 @@ fi
 [[ ! -f ${ZDOTDIR:-$HOME}/.zstyles ]] || source ${ZDOTDIR:-$HOME}/.zstyles
 [[ ! -f ${ZDOTDIR:-$HOME}/.zstyles.local ]] || source ${ZDOTDIR:-$HOME}/.zstyles.local
 
-if [ -f ~/.aliases ]; then
+# Not in zssh bundles: ~/.aliases there belongs to whoever owns the host.
+if [[ -z $ZSH_PORTABLE && -f ~/.aliases ]]; then
     . ~/.aliases
 fi
 

@@ -6,6 +6,28 @@
         args = ["--depth", "1"]
     [".config/zsh/.antidote".pull]
         args = ["--ff-only"]
+
+{{- /* tmux plugins, loaded in order by ~/.config/tmux/load-plugins.sh (no
+       TPM). Archives rather than git clones so `chezmoi archive` can bundle
+       them for zssh. */ -}}
+{{- $tmuxPlugins := dict
+      "tmux-sensible"         "tmux-plugins/tmux-sensible/archive/refs/heads/master"
+      "catppuccin"            "catppuccin/tmux/archive/refs/tags/v2.3.2"
+      "tmux-prefix-highlight" "tmux-plugins/tmux-prefix-highlight/archive/refs/heads/master"
+      "tmux-yank"             "tmux-plugins/tmux-yank/archive/refs/tags/v2.3.0"
+      "tmux-logging"          "tmux-plugins/tmux-logging/archive/refs/heads/master"
+      "extrakto"              "laktak/extrakto/archive/refs/heads/master"
+      "tmux-resurrect"        "tmux-plugins/tmux-resurrect/archive/refs/heads/master"
+      "tmux-continuum"        "tmux-plugins/tmux-continuum/archive/refs/heads/master" }}
+{{- range $name, $path := $tmuxPlugins }}
+
+[".config/tmux/plugins/{{ $name }}"]
+    type = "archive"
+    url = "https://github.com/{{ $path }}.tar.gz"
+    exact = true
+    stripComponents = 1
+    refreshPeriod = "168h"
+{{- end }}
 {{- if eq .machine "desktop" }}
 
 [".local/share/icons/candy-icons"]

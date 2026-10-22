@@ -59,27 +59,44 @@ ssh_opts=(
 )
 
 # -n: the probe must not eat keystrokes meant for the session.
-probe="$(ssh -n "${ssh_opts[@]}" "$@" \
-    "uname -m; cat \"$remote_dir/app/VERSION\" 2>/dev/null || true")"
+probe="$(ssh -n "${ssh_opts[@]}" "$@" "uname -m
+cat \"$remote_dir/app/VERSION\" 2>/dev/null || echo
+command -v tar >/dev/null 2>&1 && echo tar || echo
+command -v gzip >/dev/null 2>&1 && echo gzip || echo")"
 remote_arch=$(sed -n 1p <<<"$probe")
 remote_version=$(sed -n 2p <<<"$probe")
+remote_tar=$(sed -n 3p <<<"$probe")
+remote_gzip=$(sed -n 4p <<<"$probe")
 
 bundle="$("$builder" --arch "$remote_arch" "${build_flags[@]}" | tail -n1)"
 local_version=$(<"${bundle%.tar.gz}.version")
 
 if [[ $local_version != "$remote_version" ]]; then
+    if [[ -z $remote_tar ]]; then
+        echo "zssh: the host has no tar; zssh needs tar to unpack the bundle" >&2
+        exit 1
+    fi
+    # Minimal images (busybox, Yocto) may lack gzip: unpack locally instead.
+    # -o: files belong to the user unpacking them, never the archive's uid.
+    unpack="tar -xozf -"
+    send=(cat "$bundle")
+    if [[ -z $remote_gzip ]]; then
+        echo "zssh: host has no gzip, sending uncompressed" >&2
+        unpack="tar -xof -"
+        send=(gzip -dc "$bundle")
+    fi
     echo "zssh: uploading bundle $local_version ($(du -h "$bundle" | cut -f1))" >&2
-    ssh "${ssh_opts[@]}" "$@" "set -e
+    "${send[@]}" | ssh "${ssh_opts[@]}" "$@" "set -e
 d=\"$remote_dir\"
 mkdir -p \"\$d/state\"
 d=\$(cd \"\$d\" && pwd)
 rm -rf \"\$d/app.new\" \"\$d/app.old\"
 mkdir \"\$d/app.new\"
-tar -xzf - -C \"\$d/app.new\"
+$unpack -C \"\$d/app.new\"
 sh \"\$d/app.new/setup.sh\" \"\$d/app\"
 if [ -d \"\$d/app\" ]; then mv \"\$d/app\" \"\$d/app.old\"; fi
 mv \"\$d/app.new\" \"\$d/app\"
-rm -rf \"\$d/app.old\"" <"$bundle"
+rm -rf \"\$d/app.old\""
 fi
 
 exec ssh -t "${ssh_opts[@]}" "$@" "exec \"$remote_dir/app/enter\""
