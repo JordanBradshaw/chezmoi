@@ -45,4 +45,7 @@ if [[ -r $XDG_CONFIG_HOME/secrets/env ]]; then
   set +a
 fi
 
-[[ ! -f "$HOME/.zshenv.local" ]] || source "$HOME/.zshenv.local"
+# Skipped in zssh bundles (ZSH_PORTABLE): $HOME is someone else's machine.
+[[ -n $ZSH_PORTABLE || ! -f "$HOME/.zshenv.local" ]] || source "$HOME/.zshenv.local"
+
+export SSH_ASKPASS_REQUIRE=never

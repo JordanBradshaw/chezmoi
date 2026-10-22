@@ -4,6 +4,7 @@
     filemode = true
     excludesfile = ~/.config/git/ignore
     fsmonitor = true
+    pager = delta
 [apply]
     whitespace = fix
 [color]
@@ -17,7 +18,7 @@
     new = green
 [pull]
     ff = only
-    rebase = true
+    rebase = false
 [push]
     default = simple
     autoSetupRemote = true
