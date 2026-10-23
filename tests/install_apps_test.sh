@@ -254,10 +254,53 @@ test_apt_extra_uses_eget_for_nushell() {
     assert_call "eget nushell/nushell --file nu --asset musl --to $HOME/.local/bin"
 }
 
+# Not packaged anywhere: always installed from GitHub releases.
+assert_network_tools_from_eget() {
+    local pm=$1
+    stub "$pm"
+    stub_eget_logging
+    run_apps --machine server --no-nala
+    assert_status 0
+    refute_call_matches "^($pm|nala) .*\b(xfr|snitch|usbtree)\b"
+    assert_call "eget lance0/xfr --file xfr --asset musl --to $HOME/.local/bin"
+    assert_call "eget karol-broda/snitch --file snitch --asset tar.gz --to $HOME/.local/bin"
+    assert_call "eget gnomeria/usbtree --file usbtree --asset tar.gz --to $HOME/.local/bin"
+}
+
+test_apt_network_tools_come_from_eget() {
+    assert_network_tools_from_eget apt-get
+}
+
+test_apt_installs_rustscan_from_eget() {
+    stub apt-get
+    stub_eget_logging
+    run_apps --machine server --no-nala
+    assert_status 0
+    refute_call_matches "^apt-get install .*\brustscan\b"
+    assert_call "eget bee-san/RustScan --file rustscan --asset x86-linux --to $HOME/.local/bin"
+}
+
+test_pacman_installs_rustscan_package() {
+    stub pacman
+    stub_eget_logging
+    run_apps --machine server
+    assert_status 0
+    assert_call_matches "^pacman -S --needed --noconfirm .*\brustscan\b"
+    refute_call_matches "^eget bee-san/RustScan"
+}
+
+test_pacman_network_tools_come_from_eget() {
+    assert_network_tools_from_eget pacman
+}
+
 test_eget_skipped_when_binary_present() {
     stub apt-get
     stub eget
     stub nu
+    stub xfr
+    stub snitch
+    stub usbtree
+    stub rustscan
     run_apps --machine server --no-nala
     assert_status 0
     refute_call_matches "^eget "
@@ -273,7 +316,8 @@ test_pacman_uses_pacman_names() {
     assert_call_matches "^pacman -S --needed --noconfirm .*\bgithub-cli\b"
     assert_call_matches "^pacman -S --needed --noconfirm .*\bbottom\b"
     assert_call_matches "^pacman -S --needed --noconfirm .*\bnushell\b"
-    refute_call_matches "^eget "
+    # Only tools with no pacman package (xfr, snitch) come from eget.
+    refute_call_matches "^eget (nushell|bootandy|ajeetdsouza|atuinsh|direnv|eza-community|starship|dalance)/"
 }
 
 test_dnf_uses_dnf_names() {
