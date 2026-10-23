@@ -7,6 +7,26 @@
     [".config/zsh/.antidote".pull]
         args = ["--ff-only"]
 
+[".config/zsh/plugins/jordanbradshaw"]
+    type = "git-repo"
+    url = "https://github.com/jordanbradshaw/zsh-config.git"
+    refreshPeriod = "24h"
+    [".config/zsh/plugins/jordanbradshaw".clone]
+        args = ["--branch", "zsh-plugin", "--single-branch", "--depth", "1"]
+    [".config/zsh/plugins/jordanbradshaw".pull]
+        args = ["--ff-only"]
+
+[".config/zsh/themes/jordanbradshaw"]
+    type = "git-repo"
+    url = "https://github.com/jordanbradshaw/zsh-config.git"
+    refreshPeriod = "24h"
+    [".config/zsh/themes/jordanbradshaw".clone]
+        args = ["--branch", "zsh-themes", "--single-branch", "--depth", "1"]
+    [".config/zsh/themes/jordanbradshaw".pull]
+        args = ["--ff-only"]
+
+
+
 {{- /* tmux plugins, loaded in order by ~/.config/tmux/load-plugins.sh (no
        TPM). Archives rather than git clones so `chezmoi archive` can bundle
        them for zssh. */ -}}

@@ -71,8 +71,7 @@ mattmc3/zshrinkwrap
 
 # ─── Custom Theme (optional manual sourcing) ─────────────────────────────────
 # ${ZDOTDIR:-$HOME}/custom/themes/yupps.zsh-theme
-JordanBradshaw/zsh-config kind:zsh branch:plugin
-JordanBradshaw/zsh-config kind:zsh branch:plugin path:themes/yupps.zsh-theme
+# JordanBradshaw/zsh-config kind:zsh branch:plugin
 
 zsh-users/zsh-autosuggestions
 
