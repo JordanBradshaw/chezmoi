@@ -41,6 +41,12 @@ fi
 
 remote_dir=${ZSSH_REMOTE_DIR:-'$HOME/.zsh-portable'}
 
+# Icons (eza, lsd, tmux status) are drawn by the local terminal's font; the
+# host can't supply one. chezmoi installs FiraCode Nerd Font on desktops.
+if command -v fc-list >/dev/null 2>&1 && ! fc-list : family 2>/dev/null | grep -qi 'Nerd Font'; then
+    echo "zssh: no Nerd Font installed locally, icons will show as boxes" >&2
+fi
+
 builder=${ZSSH_BUILDER:-}
 if [[ -z $builder ]]; then
     repo=${ZSSH_REPO:-}

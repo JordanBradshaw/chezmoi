@@ -50,6 +50,16 @@
 {{- end }}
 {{- if eq .machine "desktop" }}
 
+# Fira Code with Nerd Font icons (eza/lsd, catppuccin tmux), used by the
+# yupps Konsole/Yakuake profile. Over zssh the remote side can't supply it:
+# the local terminal draws the glyphs.
+[".local/share/fonts/FiraCodeNerdFont"]
+    type = "archive"
+    url = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/FiraCode.tar.xz"
+    exact = true
+    include = ["*.ttf"]
+    refreshPeriod = "168h"
+
 [".local/share/icons/candy-icons"]
     type = "git-repo"
     url = "https://github.com/EliverLara/candy-icons.git"

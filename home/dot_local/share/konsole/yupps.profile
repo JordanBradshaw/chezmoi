@@ -2,7 +2,7 @@
 AntiAliasFonts=true
 BoldIntense=true
 ColorScheme=Sweet-Ambar-Blue
-Font=Fira Code Retina,10,-1,5,53,0,0,0,0,0,Regular
+Font=FiraCode Nerd Font,10,-1,5,50,0,0,0,0,0,Regular
 WordMode=true
 
 [Cursor Options]
