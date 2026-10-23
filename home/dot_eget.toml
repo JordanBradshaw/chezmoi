@@ -82,3 +82,6 @@ aaset_filters = ["tar.gz"]
 
 ["ankittk/peek"]
 asset = ["peek_1.1_amd64.deb", "peek_1.1_amd64.deb"]
+
+["pythops/oryx"]
+aaset_filters = ["x86_64"]

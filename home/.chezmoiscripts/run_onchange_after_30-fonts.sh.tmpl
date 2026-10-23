@@ -1,0 +1,6 @@
+{{ if eq .machine "desktop" -}}
+#!/usr/bin/env bash
+# Register fonts from chezmoi externals (FiraCode Nerd Font).
+# .chezmoiexternal.toml.tmpl hash: {{ include ".chezmoiexternal.toml.tmpl" | sha256sum }}
+fc-cache -f "$HOME/.local/share/fonts/FiraCodeNerdFont"
+{{ end -}}
