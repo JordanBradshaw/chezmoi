@@ -57,6 +57,10 @@ APPS=(
     "extra    micro     micro           micro          micro           micro           -"
     "extra    neovim    neovim          neovim         neovim          neovim          -"
     "extra    most      most            most           most            most            -"
+    "extra    xfr       -               -              -               -               lance0/xfr:xfr:musl"
+    "extra    snitch    -               -              -               -               karol-broda/snitch:snitch:tar.gz"
+    "extra    usbtree   -               -              -               -               gnomeria/usbtree:usbtree:tar.gz"
+    "extra    rustscan  -               rustscan       -               rustscan        bee-san/RustScan:rustscan:x86-linux"
     "desktop  firacode  fonts-firacode  ttf-fira-code  fira-code-fonts font-fira-code  -"
 )
 
