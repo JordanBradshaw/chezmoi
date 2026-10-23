@@ -33,6 +33,16 @@ if [[ -f "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh" ]]; then
   unset zsh_plugins
 fi
 
+# --- Personal plugin ---
+if [[  -f ${ZDOTDIR:-$HOME}/plugins/jordanbradshaw/zsh-config.plugin.zsh ]]; then
+  source ${ZDOTDIR:-$HOME}/plugins/jordanbradshaw/zsh-config.plugin.zsh
+fi
+
+# --- Theme ---
+if [[  -f "${ZDOTDIR:-$HOME}/themes/jordanbradshaw/yupps.zsh-theme" ]]; then
+    source "${ZDOTDIR:-$HOME}/themes/jordanbradshaw/yupps.zsh-theme"
+fi
+
 # Completion zstyles are applied after plugins so oh-my-zsh's lib/completion.zsh
 # doesn't overwrite them.
 [[ ! -f ${ZDOTDIR:-$HOME}/.zstyles ]] || source ${ZDOTDIR:-$HOME}/.zstyles

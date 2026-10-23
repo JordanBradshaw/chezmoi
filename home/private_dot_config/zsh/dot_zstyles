@@ -98,3 +98,43 @@ zstyle ':fzf-tab:*' switch-group '<' '>'
 
 # Disables annoying behavior
 zstyle ':completion:*' beep no
+
+# Colors
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*:messages'     format '%F{blue}-- %d --%f'
+zstyle ':completion:*:warnings'     format '%F{red}-- no matches --%f'
+zstyle ':completion:*' group-name ''
+
+# Menu is handled by fzf-tab (`menu yes` in .zstyles)
+
+# Matching: exact case first, then ignore case, then partial words, then substring
+zstyle ':completion:*' matcher-list \
+  '' \
+  'm:{a-zA-Z}={A-Za-z}' \
+  'r:|[._-]=* r:|=*' \
+  'l:|=*'
+
+# Sorting & Grouping
+zstyle ':completion:*' sort false
+
+# Paths
+zstyle ':completion:*' ignore-parents parent pwd
+# accept-exact: `yes` takes an exact name match (temp<Tab> -> temp) instead of
+# opening the menu with temp, temp2, ... Off by default. To try it:
+#   ZSH_ACCEPT_EXACT=yes zsh                         # new shell
+#   zstyle ':completion:*' accept-exact yes          # current shell
+zstyle ':completion:*' accept-exact ${ZSH_ACCEPT_EXACT:-no}
+zstyle ':completion:*:cd:*' tag-order local-directories directory-stack path-directories
+
+# Cache
+zstyle ':completion:*' use-cache yes
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
+
+# History-aware
+zstyle ':completion:*:complete:' rehash true
+
+# Git
+zstyle ':completion:*:*:git:*:branches' sort false
+zstyle ':completion:*:*:git:*:branches' ignored-patterns 'HEAD'
+
+zstyle ':omz:plugins:ssh-agent' honor-existing yes
