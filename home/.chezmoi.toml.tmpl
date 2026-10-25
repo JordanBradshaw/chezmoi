@@ -16,6 +16,18 @@
 {{- $identity := joinPath .chezmoi.homeDir ".config/chezmoi/key.txt" -}}
 {{- $hasSecrets := and (ne $machine "container") (stat $identity | not | not) -}}
 
+{{- /* Where the Rust tools come from (scripts/install-apps.sh --build):
+       prebuilt packages/releases, or cargo builds for this CPU. Asked once
+       on interactive non-container inits; edit appsBuild to switch. */ -}}
+{{- $appsBuild := "prebuilt" -}}
+{{- if hasKey . "appsBuild" -}}
+{{-   $appsBuild = .appsBuild -}}
+{{- else if and (ne $machine "container") stdinIsATTY -}}
+{{-   if promptBoolOnce . "appsBuildCargo" "Build the Rust tools with cargo, optimized for this CPU (slow: ~30 min)" false -}}
+{{-     $appsBuild = "cargo" -}}
+{{-   end -}}
+{{- end -}}
+
 sourceDir = {{ .chezmoi.workingTree | quote }}
 encryption = "age"
 
@@ -27,6 +39,7 @@ encryption = "age"
 [data]
     machine = {{ $machine | quote }}
     hasSecrets = {{ $hasSecrets }}
+    appsBuild = {{ $appsBuild | quote }}
 
 [git]
     autoAdd = true

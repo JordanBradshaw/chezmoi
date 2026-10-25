@@ -33,7 +33,7 @@ setup() {
     done
 
     unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN \
-        STUB_FAIL_PKGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
+        STUB_FAIL_PKGS STUB_FAIL_CRATES APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
     stub sudo
 }
 
@@ -605,6 +605,284 @@ test_no_package_manager_fails() {
     run_apps --machine container
     assert_status 1
     assert_output_matches "[Nn]o supported package manager"
+}
+
+# ---------------------------------------------------------------------------
+# --build cargo: Rust tools rebuilt for this CPU
+# ---------------------------------------------------------------------------
+
+CORE_CRATES="bat eza lsd ripgrep fd-find git-delta zoxide atuin"
+EXTRA_CRATES="nu tailspin procs du-dust bottom starship xfr rustscan usbtree"
+
+# stub_cargo: cargo stub that logs each install with the build settings it
+# sees, and fails for crates in $STUB_FAIL_CRATES.
+stub_cargo() {
+    cat >"$STUBS/cargo" <<'EOF'
+#!/usr/bin/env bash
+echo "cargo $*" >>"$STUB_LOG"
+echo "cargo-env RUSTFLAGS=${RUSTFLAGS:-} LTO=${CARGO_PROFILE_RELEASE_LTO:-} CGU=${CARGO_PROFILE_RELEASE_CODEGEN_UNITS:-}" >>"$STUB_LOG"
+for bad in ${STUB_FAIL_CRATES:-}; do
+    [[ " $* " == *" $bad "* ]] && exit 1
+done
+exit 0
+EOF
+    chmod +x "$STUBS/cargo"
+}
+
+# first_line PATTERN: line number of the first logged call matching PATTERN.
+first_line() {
+    grep -nE -- "$1" "$STUB_LOG" | head -1 | cut -d: -f1
+}
+
+test_default_build_never_calls_cargo() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine server --no-nala
+    assert_status 0
+    refute_call_matches "^cargo "
+    refute_call_matches "build-essential"
+}
+
+test_bad_build_value_fails() {
+    run_apps --machine server --build fast
+    assert_status 2
+    assert_no_calls
+}
+
+test_cargo_build_installs_prebuilt_first_then_crates() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine server --no-nala --build cargo
+    assert_status 0
+    assert_call_matches "^apt-get install -y --no-install-recommends .*\bripgrep\b"
+    local pkg_line cargo_line
+    pkg_line="$(first_line '^apt-get install')"
+    cargo_line="$(first_line '^cargo install')"
+    [[ -n $cargo_line && $pkg_line -lt $cargo_line ]] || fail "cargo ran before the packages"
+    local crate
+    for crate in $CORE_CRATES $EXTRA_CRATES; do
+        assert_call_matches "^cargo install --locked (--force )?$crate$"
+    done
+}
+
+test_cargo_build_uses_native_lto_flags() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    RUSTFLAGS="-C debuginfo=0" run_apps --machine container --build cargo
+    assert_status 0
+    assert_call "cargo-env RUSTFLAGS=-C debuginfo=0 -C target-cpu=native LTO=fat CGU=1"
+}
+
+test_cargo_build_only_rust_tools() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine server --no-nala --build cargo
+    local tool
+    for tool in curl git fzf direnv gh duf htop tmux micro miller snitch; do
+        refute_call_matches "^cargo install --locked (--force )?$tool$"
+    done
+}
+
+test_cargo_build_respects_tiers() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine container --build cargo
+    assert_status 0
+    assert_call_matches "^cargo install --locked (--force )?ripgrep$"
+    refute_call_matches "^cargo install --locked (--force )?(nu|starship|rustscan)$"
+}
+
+test_cargo_build_deps_per_manager() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine container --build cargo
+    assert_call_matches "^apt-get install -y --no-install-recommends .*\bbuild-essential pkg-config\b"
+    : >"$STUB_LOG"
+    rm "$STUBS/apt-get"
+    stub pacman
+    run_apps --machine container --build cargo
+    assert_call_matches "^pacman -S --needed --noconfirm .*\bbase-devel\b"
+    : >"$STUB_LOG"
+    rm "$STUBS/pacman"
+    stub dnf
+    run_apps --machine container --build cargo
+    assert_call_matches "^dnf install -y .*\bgcc make pkgconf-pkg-config\b"
+}
+
+test_apps_build_env_selects_cargo() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    APPS_BUILD=cargo run_apps --machine container
+    assert_status 0
+    assert_call_matches "^cargo install --locked (--force )?ripgrep$"
+}
+
+test_failed_crate_keeps_prebuilt_and_succeeds() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    ln -s "$(command -v mv)" "$STUBS/mv"
+    mkdir -p "$HOME/.local/bin"
+    printf 'prebuilt\n' >"$HOME/.local/bin/atuin"
+    export STUB_FAIL_CRATES="atuin"
+    run_apps --machine container --build cargo
+    assert_status 0
+    assert_output_matches "cargo build failed.*atuin"
+    [[ -f $HOME/.local/bin/atuin ]] || fail "prebuilt atuin moved after a failed build"
+    assert_call_matches "^cargo install --locked (--force )?zoxide$"
+}
+
+test_eget_copy_moved_aside_after_build() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    ln -s "$(command -v mv)" "$STUBS/mv"
+    mkdir -p "$HOME/.local/bin"
+    printf 'eget copy\n' >"$HOME/.local/bin/rustscan"
+    printf 'eget copy\n' >"$HOME/.local/bin/dust"
+    run_apps --machine server --no-nala --build cargo
+    assert_status 0
+    [[ -e $HOME/.local/bin/rustscan ]] && fail "eget rustscan still shadows the cargo build"
+    [[ -f $HOME/.local/share/install-apps/replaced/rustscan ]] || fail "rustscan not kept aside"
+    # Crate and binary names differ: du-dust installs dust.
+    [[ -f $HOME/.local/share/install-apps/replaced/dust ]] || fail "dust not kept aside"
+    return 0
+}
+
+test_system_packages_are_not_removed() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine server --no-nala --build cargo
+    refute_call_matches "^apt-get (remove|purge|autoremove)"
+}
+
+# cargo skips a crate already at the latest version whatever RUSTFLAGS say,
+# so one built some other way (plain `cargo install`) is forced once.
+test_unrecorded_crates_are_rebuilt_once() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine container --build cargo
+    assert_call "cargo install --locked --force ripgrep"
+    : >"$STUB_LOG"
+    run_apps --machine container --build cargo
+    assert_call "cargo install --locked ripgrep"
+    refute_call_matches "^cargo install .*--force"
+    # Other settings (here extra RUSTFLAGS) count as a different build.
+    : >"$STUB_LOG"
+    RUSTFLAGS="-C debuginfo=0" run_apps --machine container --build cargo
+    assert_call "cargo install --locked --force ripgrep"
+}
+
+test_failed_crate_is_not_recorded() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    STUB_FAIL_CRATES="atuin" run_apps --machine container --build cargo
+    : >"$STUB_LOG"
+    run_apps --machine container --build cargo
+    assert_call "cargo install --locked --force atuin"
+    assert_call "cargo install --locked zoxide"
+}
+
+# stub_curl_rustup_installer: curl stub serving a rustup-init that logs its
+# arguments and drops a cargo stub into ~/.cargo/bin.
+stub_curl_rustup_installer() {
+    cat >"$STUBS/curl" <<EOF
+#!/usr/bin/env bash
+echo "curl \$*" >>"\$STUB_LOG"
+out=""
+while (( \$# )); do [[ \$1 == -o ]] && out=\$2; shift; done
+cat >"\$out" <<'INSTALLER'
+echo "rustup-init \$*" >>"\$STUB_LOG"
+mkdir -p "\$HOME/.cargo/bin"
+cp "$STUBS/.cargo" "\$HOME/.cargo/bin/cargo"
+INSTALLER
+EOF
+    chmod +x "$STUBS/curl"
+    stub_cargo
+    mv "$STUBS/cargo" "$STUBS/.cargo"
+    local tool
+    for tool in mktemp rm cat sh cp; do
+        ln -s "$(command -v "$tool")" "$STUBS/$tool"
+    done
+}
+
+test_rustup_installed_when_cargo_missing() {
+    stub apt-get
+    stub eget
+    stub_curl_rustup_installer
+    run_apps --machine container --build cargo
+    assert_status 0
+    assert_call_matches "^curl .*https://sh\.rustup\.rs"
+    assert_call "rustup-init -y --no-modify-path --profile minimal"
+    assert_call_matches "^cargo install --locked (--force )?ripgrep$"
+}
+
+test_rustup_without_toolchain_gets_stable() {
+    stub apt-get
+    stub eget
+    stub_curl_rustup_installer
+    cat >"$STUBS/rustup" <<'EOF'
+#!/usr/bin/env bash
+echo "rustup $*" >>"$STUB_LOG"
+EOF
+    chmod +x "$STUBS/rustup"
+    run_apps --machine container --build cargo
+    assert_call "rustup default stable"
+    refute_call_matches "^rustup-init"
+}
+
+test_existing_cargo_home_is_used() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    mkdir -p "$HOME/.cargo/bin"
+    mv "$STUBS/cargo" "$HOME/.cargo/bin/cargo"
+    run_apps --machine container --build cargo
+    assert_status 0
+    assert_call_matches "^cargo install --locked (--force )?ripgrep$"
+}
+
+# ---------------------------------------------------------------------------
+# chezmoi: appsBuild picks the build
+# ---------------------------------------------------------------------------
+
+# render FILE [DATA_LINES]: FILE from home/ rendered with a sandbox config.
+render() {
+    printf '[data]\n    machine = "server"\n    hasSecrets = false\n%s\n' "${2:-}" >"$SANDBOX/chezmoi.toml"
+    PATH="$REAL_PATH" chezmoi --source="$REPO_DIR" --config="$SANDBOX/chezmoi.toml" \
+        --persistent-state="$SANDBOX/state.db" --destination="$HOME" \
+        execute-template ${3:-} <"$REPO_DIR/home/$1" 2>/dev/null
+}
+
+REAL_PATH=$PATH
+RUN_ONCHANGE=.chezmoiscripts/run_onchange_after_10-install-apps.sh.tmpl
+
+test_run_onchange_passes_build() {
+    command -v chezmoi >/dev/null || return 0
+    OUTPUT="$(render $RUN_ONCHANGE)"
+    assert_output_matches "--machine server --build prebuilt\$"
+    OUTPUT="$(render $RUN_ONCHANGE '    appsBuild = "cargo"')"
+    assert_output_matches "--machine server --build cargo\$"
+    # The setting is in the rendered text, so changing it re-runs the script.
+    assert_output_matches "^# appsBuild: cargo\$"
+}
+
+test_init_keeps_and_defaults_apps_build() {
+    command -v chezmoi >/dev/null || return 0
+    OUTPUT="$(render .chezmoi.toml.tmpl '    appsBuild = "cargo"' --init)"
+    assert_output_matches '^    appsBuild = "cargo"$'
+    OUTPUT="$(render .chezmoi.toml.tmpl '' --init)"
+    assert_output_matches '^    appsBuild = "prebuilt"$'
 }
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,30 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  ~/.config/zsh/.zshrc belongs to the machine: installers (pnpm, nvm, ...) and
+  the user edit it. chezmoi only keeps one marked block at the top, which
+  sources $ZDOTDIR/zshrc.d/*.zsh (repo snippets plus unmanaged local
+  NN-name.zsh files). Lines outside the block are kept below it and run after
+  zshrc.d, i.e. after plugins; PATH entries that plugins must see at load
+  time belong in zshrc.d/50-name.zsh instead.
+
+  Older versions are replaced, keeping the lines appended after them: the
+  head/tail and pre/post blocks, the plain .zshrc.d loader this repo owned,
+  and the whole .zshrc it wrote before that (zsh-prof line ... .zshrc.local
+  line).
+*/ -}}
+{{- $block := `# >>> zsh-config >>>
+for _zc_f in "${ZDOTDIR:-$HOME}"/zshrc.d/*.zsh(N); do [[ ${_zc_f:t} == '~'* ]] || source "$_zc_f"; done
+unset _zc_f
+# <<< zsh-config <<<` -}}
+{{- $body := .chezmoi.stdin -}}
+{{- if not (contains "# >>> zsh-config" $body) -}}
+{{-   $body = regexReplaceAll `(?s)\A#!/bin/zsh\n# .zsh-prof. sets ZSH_PROF.*\n\[\[ ! -f \$\{ZDOTDIR:-\$HOME\}/\.zshrc\.local \]\] \|\| source \$\{ZDOTDIR:-\$HOME\}/\.zshrc\.local(\n|\z)` $body "" -}}
+{{-   $body = regexReplaceAll `(?s)\A# zsh-config: everything lives in \$ZDOTDIR/\.zshrc\.d/.*?\nunset _zc_f(\n|\z)` $body "" -}}
+{{- end -}}
+{{- $body = regexReplaceAll `(?s)# >>> zsh-config(?: head| tail| pre| post)? >>>\n.*?# <<< zsh-config(?: head| tail| pre| post)? <<<(\n|\z)` $body "" -}}
+{{- $body = trimAll "\n" $body -}}
+{{- if $body -}}
+{{-   printf "%s\n\n%s\n" $block $body -}}
+{{- else -}}
+{{-   printf "%s\n" $block -}}
+{{- end -}}
