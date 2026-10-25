@@ -1,3 +1,6 @@
+# Base environment for every zsh, loaded first from zshenv.d by ~/.zshenv.
+# Values already set win, so zssh can point the XDG dirs into its bundle.
+
 export PROMPT_SYMBOL=""
 
 # XDG Base Directory spec: fill in defaults only when unset or empty.
@@ -29,23 +32,22 @@ fi
   done
 }
 
-export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 export EDITOR=nano
-HISTFILE="${HISTFILE:-$HOME/.zsh_history}"
-# export ZSH="${XDG_CONFIG_HOME:-$HOME/.config}/.oh-my-zsh"
-
-# Keep PATH unique so nested shells don't keep prepending.
-typeset -gU path
-path=("$XDG_BIN_HOME" $path)
-
-# Secrets decrypted by chezmoi as KEY=value lines; absent on machines without the age key.
-if [[ -r $XDG_CONFIG_HOME/secrets/env ]]; then
-  set -a
-  source "$XDG_CONFIG_HOME/secrets/env"
-  set +a
-fi
-
-# Skipped in zssh bundles (ZSH_PORTABLE): $HOME is someone else's machine.
-[[ -n $ZSH_PORTABLE || ! -f "$HOME/.zshenv.local" ]] || source "$HOME/.zshenv.local"
-
 export SSH_ASKPASS_REQUIRE=never
+
+# One history file for every terminal, in the XDG state dir. An inherited
+# HISTFILE wins (zssh exports its bundle's). ZC_HISTFILE remembers the choice:
+# VS Code's shell integration overwrites HISTFILE before .zshrc, and
+# zshrc.d/00-early.zsh restores it.
+typeset -g ZC_HISTFILE="${HISTFILE:-$XDG_STATE_HOME/zsh/history}"
+HISTFILE=$ZC_HISTFILE
+[[ -d ${HISTFILE:h} ]] || mkdir -p -- "${HISTFILE:h}"
+
+# Completion dump: a fixed name, so use-omz and ez-compinit agree and a
+# hostname change doesn't leave a new dump behind.
+ZSH_CACHE_DIR="${ZSH_CACHE_DIR:-$XDG_CACHE_HOME/zsh}"
+ZSH_COMPDUMP="${ZSH_COMPDUMP:-$ZSH_CACHE_DIR/zcompdump-$ZSH_VERSION}"
+
+# Keep the search paths unique so nested shells don't keep prepending.
+typeset -gU path cdpath fpath manpath
+path=("$XDG_BIN_HOME" $path)

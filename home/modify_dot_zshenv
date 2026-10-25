@@ -1,0 +1,35 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  ~/.zshenv belongs to the machine: installers (rustup, ...) and the user
+  append to it, also through the $ZDOTDIR/.zshenv symlink. chezmoi only keeps
+  one marked block at the top, which sets ZDOTDIR and sources
+  $ZDOTDIR/zshenv.d/*.zsh (repo snippets plus unmanaged local NN-name.zsh
+  files). Lines outside the block are kept below it and run after zshenv.d.
+
+  ZDOTDIR comes from XDG_CONFIG_HOME, not a literal ~/.config: zssh points
+  XDG_CONFIG_HOME into its bundle while HOME stays the host's.
+
+  Older hooks are replaced, keeping the lines appended after them: the
+  head/tail and pre/post blocks, the unmarked line or block that sourced
+  .zshenv.init, and a ~/.zshenv written by this repo before the hooks (it
+  starts with PROMPT_SYMBOL).
+*/ -}}
+{{- $block := `# >>> zsh-config >>>
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
+export ZSH_CUSTOM="$ZDOTDIR"
+for _zc_f in "$ZDOTDIR"/zshenv.d/*.zsh(N); do [[ ${_zc_f:t} == '~'* ]] || source "$_zc_f"; done
+unset _zc_f
+# <<< zsh-config <<<` -}}
+{{- $body := .chezmoi.stdin -}}
+{{- if not (contains "# >>> zsh-config" $body) -}}
+{{-   $body = regexReplaceAll `(?s)\Aexport PROMPT_SYMBOL="".*(export SSH_ASKPASS_REQUIRE=never|\|\| source "\$HOME/\.zshenv\.local")(\n|\z)` $body "" -}}
+{{- end -}}
+{{- $body = regexReplaceAll `(?m)^\[\[ ! -f "\$HOME/\.config/zsh/\.zshenv\.init" \]\] \|\| source "\$HOME/\.config/zsh/\.zshenv\.init"\n?` $body "" -}}
+{{- $body = regexReplaceAll `(?s)# >>> zsh-config(?: head| tail| pre| post)? >>>\n.*?# <<< zsh-config(?: head| tail| pre| post)? <<<(\n|\z)` $body "" -}}
+{{- $body = trimAll "\n" $body -}}
+{{- if $body -}}
+{{-   printf "%s\n\n%s\n" $block $body -}}
+{{- else -}}
+{{-   printf "%s\n" $block -}}
+{{- end -}}

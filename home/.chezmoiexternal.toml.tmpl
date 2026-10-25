@@ -7,25 +7,9 @@
     [".config/zsh/.antidote".pull]
         args = ["--ff-only"]
 
-[".config/zsh/plugins/jordanbradshaw"]
-    type = "git-repo"
-    url = "https://github.com/jordanbradshaw/zsh-config.git"
-    refreshPeriod = "24h"
-    [".config/zsh/plugins/jordanbradshaw".clone]
-        args = ["--branch", "zsh-plugin", "--single-branch", "--depth", "1"]
-    [".config/zsh/plugins/jordanbradshaw".pull]
-        args = ["--ff-only"]
-
-[".config/zsh/themes/jordanbradshaw"]
-    type = "git-repo"
-    url = "https://github.com/jordanbradshaw/zsh-config.git"
-    refreshPeriod = "24h"
-    [".config/zsh/themes/jordanbradshaw".clone]
-        args = ["--branch", "zsh-themes", "--single-branch", "--depth", "1"]
-    [".config/zsh/themes/jordanbradshaw".pull]
-        args = ["--ff-only"]
-
-
+# yupps-zsh (personal plugin and theme) isn't an external: zshrc.d/71-custom-plugin.zsh
+# clones it to plugins/yupps-zsh, and an exact external there would wipe the
+# clone's .git.
 
 {{- /* tmux plugins, loaded in order by ~/.config/tmux/load-plugins.sh (no
        TPM). Archives rather than git clones so `chezmoi archive` can bundle

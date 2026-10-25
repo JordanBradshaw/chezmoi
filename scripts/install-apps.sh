@@ -3,10 +3,12 @@
 # Install the command-line tools this config relies on.
 #
 # Usage: install-apps.sh [--machine desktop|server|container] [--no-nala]
+#                        [--build prebuilt|cargo]
 #
 #   Run by chezmoi (.chezmoiscripts/run_onchange_after_10-install-apps.sh.tmpl)
-#   with the machine type from chezmoi data. Without --machine the type is
-#   guessed: container markers, then plasmashell (desktop), else server.
+#   with the machine type and appsBuild from chezmoi data. Without --machine
+#   the type is guessed: container markers, then plasmashell (desktop), else
+#   server.
 #
 #   Tiers installed per machine type:
 #     core     every machine
@@ -20,48 +22,72 @@
 #   eget authenticates with EGET_GITHUB_TOKEN from the environment, then
 #   ~/.config/secrets/env, then `gh auth token`.
 #
+#   --build (or APPS_BUILD) picks where the Rust tools come from:
+#     prebuilt  packages, then eget releases (the default)
+#     cargo     the same first, so every tool works even if a build fails;
+#               then each Rust tool is rebuilt with `cargo install --locked`
+#               for this CPU (target-cpu=native, fat LTO, one codegen unit)
+#               into ~/.cargo/bin, which comes before the system dirs in PATH.
+#               rustup is installed if needed (--no-modify-path: zshenv.d
+#               adds ~/.cargo/bin). Copies in ~/.local/bin, which would shadow
+#               the build, move to ~/.local/share/install-apps/replaced/;
+#               package-manager copies stay. A failed build keeps the
+#               prebuilt copy and is reported without failing the run.
+#               Re-runs only rebuild crates with newer versions.
+#
 #   DRY_RUN=1 prints the commands instead of running them.
 
 set -euo pipefail
 
-# Columns: tier name apt pacman dnf brew eget
+# Columns: tier name apt pacman dnf brew eget cargo
 #   "-"   not packaged for that manager.
 #   eget  "owner/repo:binary[:asset[,asset...]]", used when the package is
 #         unavailable or fails. Each asset filter narrows the release files;
 #         a leading ^ excludes matches.
+#   cargo "crate[:binary]" for --build cargo; the binary defaults to the
+#         crate name.
 APPS=(
-    "core     curl      curl            curl           curl            curl            -"
-    "core     git       git             git            git             git             -"
-    "core     unzip     unzip           unzip          unzip           unzip           -"
-    "core     fzf       fzf             fzf            fzf             fzf             -"
-    "core     bat       bat             bat            bat             bat             -"
-    "core     eza       eza             eza            eza             eza             eza-community/eza:eza:gnu.tar.gz"
-    "core     lsd       lsd             lsd            lsd             lsd             -"
-    "core     ripgrep   ripgrep         ripgrep        ripgrep         ripgrep         -"
-    "core     fd        fd-find         fd             fd-find         fd              -"
-    "core     delta     git-delta       git-delta      git-delta       git-delta       -"
-    "core     zoxide    zoxide          zoxide         zoxide          zoxide          ajeetdsouza/zoxide:zoxide:musl"
-    "core     atuin     atuin           atuin          atuin           atuin           atuinsh/atuin:atuin:gnu.tar.gz,^server"
-    "core     direnv    direnv          direnv         direnv          direnv          direnv/direnv:direnv"
-    "extra    miller    miller          miller         miller          miller          -"
-    "extra    nushell   -               nushell        -               nushell         nushell/nushell:nu:musl"
-    "extra    gh        gh              github-cli     gh              gh              -"
-    "extra    tailspin  tailspin        tailspin       tailspin        tailspin        -"
-    "extra    procs     procs           procs          procs           procs           dalance/procs:procs:x86_64-linux"
-    "extra    duf       duf             duf            duf             duf             -"
-    "extra    dust      du-dust         dust           du-dust         dust            bootandy/dust:dust:musl"
-    "extra    btm       btm             bottom         bottom          bottom          -"
-    "extra    htop      htop            htop           htop            htop            -"
-    "extra    tmux      tmux            tmux           tmux            tmux            -"
-    "extra    starship  starship        starship       starship        starship        starship/starship:starship:musl.tar.gz,^sha256"
-    "extra    micro     micro           micro          micro           micro           -"
-    "extra    neovim    neovim          neovim         neovim          neovim          -"
-    "extra    most      most            most           most            most            -"
-    "extra    xfr       -               -              -               -               lance0/xfr:xfr:musl"
-    "extra    snitch    -               -              -               -               karol-broda/snitch:snitch:tar.gz"
-    "extra    usbtree   -               -              -               -               gnomeria/usbtree:usbtree:tar.gz"
-    "extra    rustscan  -               rustscan       -               rustscan        bee-san/RustScan:rustscan:x86-linux"
-    "desktop  firacode  fonts-firacode  ttf-fira-code  fira-code-fonts font-fira-code  -"
+    "core    curl     curl           curl          curl            curl           -                                              -"
+    "core    git      git            git           git             git            -                                              -"
+    "core    unzip    unzip          unzip         unzip           unzip          -                                              -"
+    "core    fzf      fzf            fzf           fzf             fzf            -                                              -"
+    "core    bat      bat            bat           bat             bat            -                                              bat"
+    "core    eza      eza            eza           eza             eza            eza-community/eza:eza:gnu.tar.gz               eza"
+    "core    lsd      lsd            lsd           lsd             lsd            -                                              lsd"
+    "core    ripgrep  ripgrep        ripgrep       ripgrep         ripgrep        -                                              ripgrep:rg"
+    "core    fd       fd-find        fd            fd-find         fd             -                                              fd-find:fd"
+    "core    delta    git-delta      git-delta     git-delta       git-delta      -                                              git-delta:delta"
+    "core    zoxide   zoxide         zoxide        zoxide          zoxide         ajeetdsouza/zoxide:zoxide:musl                 zoxide"
+    "core    atuin    atuin          atuin         atuin           atuin          atuinsh/atuin:atuin:gnu.tar.gz,^server         atuin"
+    "core    direnv   direnv         direnv        direnv          direnv         direnv/direnv:direnv                           -"
+    "extra   miller   miller         miller        miller          miller         -                                              -"
+    "extra   nushell  -              nushell       -               nushell        nushell/nushell:nu:musl                        nu"
+    "extra   gh       gh             github-cli    gh              gh             -                                              -"
+    "extra   tailspin tailspin       tailspin      tailspin        tailspin       -                                              tailspin:tspin"
+    "extra   procs    procs          procs         procs           procs          dalance/procs:procs:x86_64-linux               procs"
+    "extra   duf      duf            duf           duf             duf            -                                              -"
+    "extra   dust     du-dust        dust          du-dust         dust           bootandy/dust:dust:musl                        du-dust:dust"
+    "extra   btm      btm            bottom        bottom          bottom         -                                              bottom:btm"
+    "extra   htop     htop           htop          htop            htop           -                                              -"
+    "extra   tmux     tmux           tmux          tmux            tmux           -                                              -"
+    "extra   starship starship       starship      starship        starship       starship/starship:starship:musl.tar.gz,^sha256 starship"
+    "extra   micro    micro          micro         micro           micro          -                                              -"
+    "extra   neovim   neovim         neovim        neovim          neovim         -                                              -"
+    "extra   most     most           most          most            most           -                                              -"
+    "extra   xfr      -              -             -               -              lance0/xfr:xfr:musl                            xfr"
+    "extra   snitch   -              -             -               -              karol-broda/snitch:snitch:tar.gz               -"
+    "extra   usbtree  -              -             -               -              gnomeria/usbtree:usbtree:tar.gz                usbtree"
+    "extra   rustscan -              rustscan      -               rustscan       bee-san/RustScan:rustscan:x86-linux            rustscan"
+    "desktop firacode fonts-firacode ttf-fira-code fira-code-fonts font-fira-code -                                              -"
+#    "extra    -         -               -              -               -               sanford/lsnet"
+)
+
+# Compilers and pkg-config for --build cargo, per package manager.
+declare -A BUILD_DEPS=(
+    [apt]="build-essential pkg-config"
+    [pacman]="base-devel"
+    [dnf]="gcc make pkgconf-pkg-config"
+    [brew]=""
 )
 
 run() {
@@ -174,6 +200,84 @@ install_eget() {
     run eget "$repo" --file "$bin" "${asset_args[@]}" --to "$HOME/.local/bin"
 }
 
+# ensure_rustup: put cargo on PATH, from ~/.cargo/bin, a rustup without a
+# default toolchain, or a fresh rustup install (minimal profile). PATH and
+# the shell config are left alone: zshenv.d/10-toolchains.zsh adds
+# ~/.cargo/bin.
+ensure_rustup() {
+    local cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+    PATH="$cargo_bin:$PATH"
+    command -v cargo >/dev/null 2>&1 && return 0
+    if command -v rustup >/dev/null 2>&1; then
+        run rustup default stable
+        return
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "Error: cargo is missing and curl is unavailable to fetch rustup." >&2
+        return 1
+    fi
+
+    echo "Installing rustup (stable, minimal profile)..."
+    [[ -n ${DRY_RUN:-} ]] && {
+        echo "+ curl https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal"
+        return 0
+    }
+    local tmp
+    tmp="$(mktemp)"
+    if curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$tmp" \
+        && sh "$tmp" -y --no-modify-path --profile minimal \
+        && command -v cargo >/dev/null 2>&1; then
+        rm -f "$tmp"
+        return 0
+    fi
+    rm -f "$tmp"
+    echo "Error: failed to install rustup." >&2
+    return 1
+}
+
+# retire_local_copy BINARY: move ~/.local/bin/BINARY (an eget download that
+# comes first in PATH) out of the way of the cargo build, keeping it.
+retire_local_copy() {
+    local copy="$HOME/.local/bin/$1" keep="$HOME/.local/share/install-apps/replaced"
+    [[ -e $copy || -L $copy ]] || return 0
+    [[ $copy -ef ${CARGO_HOME:-$HOME/.cargo}/bin/$1 ]] && return 0
+    echo "Moving $copy to $keep/ (the cargo build replaces it)."
+    run mkdir -p "$keep"
+    run mv -f "$copy" "$keep/$1"
+}
+
+# install_cargo "crate[:binary]": build the crate for this CPU into
+# ~/.cargo/bin. A shared target dir keeps dependencies between crates and
+# runs. Any RUSTFLAGS already set are kept.
+#
+# cargo skips a crate already at the latest version whatever the flags, so
+# BUILT_RECORD lists the crates built with exactly these settings; anything
+# else (a plain `cargo install`, other RUSTFLAGS) is rebuilt once with --force.
+BUILT_RECORD="$HOME/.local/share/install-apps/cargo-built"
+install_cargo() {
+    local crate bin rustflags settings line force=--force
+    IFS=: read -r crate bin <<<"$1"
+    bin=${bin:-$crate}
+    rustflags="${RUSTFLAGS:+$RUSTFLAGS }-C target-cpu=native"
+    settings="$crate RUSTFLAGS=$rustflags LTO=fat CGU=1"
+    if [[ -r $BUILT_RECORD ]]; then
+        while IFS= read -r line; do
+            [[ $line == "$settings" ]] && force="" && break
+        done <"$BUILT_RECORD"
+    fi
+
+    echo "Building $crate for this CPU..."
+    run env RUSTFLAGS="$rustflags" \
+        CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+        CARGO_TARGET_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/install-apps/cargo-target" \
+        cargo install --locked $force "$crate" || return 1
+    if [[ -n $force && -z ${DRY_RUN:-} ]]; then
+        mkdir -p "${BUILT_RECORD%/*}"
+        echo "$settings" >>"$BUILT_RECORD"
+    fi
+    retire_local_copy "$bin"
+}
+
 # setup_nala [SUDO...] - make sure nala is installed.
 # Succeeds when nala can be used.
 setup_nala() {
@@ -189,7 +293,8 @@ setup_nala() {
 }
 
 main() {
-    local machine="" nala=1
+    local machine="" nala=1 build=${APPS_BUILD:-prebuilt}
+    local usage="Usage: $0 [--machine desktop|server|container] [--no-nala] [--build prebuilt|cargo]"
     while (( $# )); do
         case "$1" in
             --machine)
@@ -198,13 +303,22 @@ main() {
                 ;;
             --machine=*) machine="${1#--machine=}" ;;
             --no-nala) nala=0 ;;
+            --build)
+                build="${2:-}"
+                shift
+                ;;
+            --build=*) build="${1#--build=}" ;;
             *)
-                echo "Usage: $0 [--machine desktop|server|container] [--no-nala]" >&2
+                echo "$usage" >&2
                 return 2
                 ;;
         esac
         shift
     done
+    if [[ $build != prebuilt && $build != cargo ]]; then
+        echo "Error: unknown build '$build' (expected prebuilt or cargo)." >&2
+        return 2
+    fi
 
     [[ -n $machine ]] || machine="$(detect_machine)"
     local -A tiers=([core]=1)
@@ -218,6 +332,7 @@ main() {
             ;;
     esac
     echo "Machine: $machine (tiers: ${!tiers[*]})"
+    [[ $build == cargo ]] && echo "Build: cargo (Rust tools rebuilt for this CPU after the prebuilt install)"
 
     local pm
     if ! pm="$(detect_pkg_manager)"; then
@@ -254,13 +369,14 @@ main() {
     echo "Package manager: $pm"
 
     local row pkg spec
-    local -a fields pkgs=() egets=() failed=()
+    local -a fields pkgs=() egets=() failed=() crates=() cargo_failed=()
     local -A fallback=()
     for row in "${APPS[@]}"; do
         read -r -a fields <<<"$row"
         [[ -n ${tiers[${fields[0]}]:-} ]] || continue
         pkg="${fields[col]}"
         spec="${fields[6]}"
+        [[ ${fields[7]} != - ]] && crates+=("${fields[7]}")
         if [[ $pkg != - ]]; then
             pkgs+=("$pkg")
             [[ $spec != - ]] && fallback[$pkg]="$spec"
@@ -270,6 +386,10 @@ main() {
             failed+=("${fields[1]}")
         fi
     done
+    if [[ $build == cargo && -n ${BUILD_DEPS[$pm]} ]]; then
+        read -r -a fields <<<"${BUILD_DEPS[$pm]}"
+        pkgs+=("${fields[@]}")
+    fi
 
     if [[ $pm == apt ]]; then
         run "${sudo[@]}" apt-get update
@@ -301,6 +421,19 @@ main() {
     for spec in "${egets[@]}"; do
         install_eget "$spec" || failed+=("${spec%%:*}")
     done
+
+    if [[ $build == cargo ]] && (( ${#crates[@]} )); then
+        if ensure_rustup; then
+            for spec in "${crates[@]}"; do
+                install_cargo "$spec" || cargo_failed+=("${spec%%:*}")
+            done
+        else
+            cargo_failed=("${crates[@]%%:*}")
+        fi
+        if (( ${#cargo_failed[@]} )); then
+            echo "Warning: cargo build failed, keeping the prebuilt copy: ${cargo_failed[*]}" >&2
+        fi
+    fi
 
     if (( ${#failed[@]} )); then
         echo "Failed to install: ${failed[*]}" >&2

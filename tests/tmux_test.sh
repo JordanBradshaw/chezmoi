@@ -140,6 +140,72 @@ test_number_keys_pick_windows_1_to_10() {
 }
 
 # ---------------------------------------------------------------------------
+# Yakuake shortcuts without the prefix
+# ---------------------------------------------------------------------------
+
+# send_raw BYTES...: attach a client in a pty and type each argument (Python
+# escapes, e.g. '\x1f'), pausing so tmux handles them one at a time.
+send_raw() {
+    python3 - "$@" <<'EOF'
+import os, pty, select, sys, time
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ["TERM"] = "xterm-256color"
+    os.execvp("tmux", ["tmux", "-L", "test", "attach", "-t", "t"])
+def drain(seconds):
+    end = time.time() + seconds
+    while time.time() < end:
+        if select.select([fd], [], [], 0.05)[0]:
+            try:
+                os.read(fd, 65536)
+            except OSError:
+                return
+drain(1.0)
+for arg in sys.argv[1:]:
+    os.write(fd, arg.encode().decode("unicode_escape").encode("latin-1"))
+    drain(0.5)
+os.kill(pid, 9)
+EOF
+}
+
+# Each Yakuake key arrives under different names depending on the terminal's
+# encoding (classic, xterm modifyOtherKeys, CSI u), so all are bound.
+test_yakuake_keys_bound_without_prefix() {
+    start_tmux
+    local k
+    for k in C-_ C-S--; do assert_match "$(key root $k)" '^split-window -v -c'; done
+    for k in C-S-= C-+ C-S-+; do assert_match "$(key root $k)" '^split-window -h -c'; done
+    for k in C-S-Up C-BTab C-S-Tab; do assert_eq "$(key root $k)" "select-pane -t :.-"; done
+    for k in C-S-Down C-Tab; do assert_eq "$(key root $k)" "select-pane -t :.+"; done
+    for k in S-Left C-S-Left; do assert_eq "$(key root $k)" "previous-window"; done
+    for k in S-Right C-S-Right; do assert_eq "$(key root $k)" "next-window"; done
+    for k in C-S-t C-S-T C-S-n C-S-N; do assert_match "$(key root $k)" '^new-window -c'; done
+    for k in C-S-r C-S-R C-S-q C-S-Q; do assert_eq "$(key root $k)" "kill-pane"; done
+    assert_eq "$(key root M-1)" "select-window -t :=1"
+    assert_eq "$(key root M-0)" "select-window -t :=10"
+    assert_eq "$(t show -sv extended-keys)" "on"
+}
+
+# The bytes real terminals send for these keys reach the bindings.
+test_yakuake_keys_from_raw_terminal_input() {
+    start_tmux
+    # Ctrl+Shift+- classic (0x1f), Ctrl+Shift+= as modifyOtherKeys.
+    send_raw '\x1f' '\x1b[27;6;61~'
+    assert_eq "$(t list-panes -t t | wc -l)" 3
+    # Ctrl+Tab as CSI u: next pane wraps from the last split to the first.
+    local before after
+    before="$(t display -p -t t '#{pane_index}')"
+    send_raw '\x1b[9;5u'
+    after="$(t display -p -t t '#{pane_index}')"
+    [[ $before != "$after" ]] || fail "Ctrl+Tab did not change pane"
+    # Ctrl+Shift+T as CSI u opens a window; Alt+1 goes back to window 1.
+    send_raw '\x1b[116;6u'
+    assert_eq "$(t list-windows -t t | wc -l)" 2
+    send_raw '\x1b1'
+    assert_eq "$(t display -p -t t '#{window_index}')" 1
+}
+
+# ---------------------------------------------------------------------------
 # Plugins
 # ---------------------------------------------------------------------------
 
@@ -160,8 +226,18 @@ test_prefix_highlight_in_status() {
 
 test_continuum_saves_automatically() {
     start_tmux
-    assert_match "$(t show -gv status-right)" 'continuum_save\.sh'
     assert_eq "$(t show -gv @continuum-restore)" "on"
+    # continuum only autosaves when it is the only tmux server, so environments
+    # don't overwrite each other's saves; with yours running, it holds back.
+    local ours others
+    ours="$(t display -p '#{pid}')"
+    # Counted like continuum does (ps command line; pgrep misses the server).
+    others="$(ps -Ao 'command pid' | grep -E '^tmux' | grep -vE " $ours\$" | grep -vc 'tmux -L test')"
+    if (( others > 0 )); then
+        echo "  note [$CURRENT]: $others other tmux server(s) running, autosave hook not checked"
+        return 0
+    fi
+    assert_match "$(t show -gv status-right)" 'continuum_save\.sh'
 }
 
 test_resurrect_bindings() {

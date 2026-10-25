@@ -44,10 +44,6 @@ target = "~/.local/bin/diskwatch"
 
 ["Lifailon/lazyjournal"]
 
-# Really should get tailspin (tsp)
-
-
-
 ["jesseduffield/lazydocker"]
 
 ["jesseduffield/lazygit"]
@@ -78,10 +74,10 @@ asset_filters = ["x86_64", "linux", "tar.gz"]
 file = "nvim-linux-x86_64/bin/nvim"
 
 ["denilsonsa/prettyping"]
-aaset_filters = ["tar.gz"]
+asset_filters = ["tar.gz"]
 
 ["ankittk/peek"]
 asset = ["peek_1.1_amd64.deb", "peek_1.1_amd64.deb"]
 
 ["pythops/oryx"]
-aaset_filters = ["x86_64"]
+asset_filters = ["x86_64"]

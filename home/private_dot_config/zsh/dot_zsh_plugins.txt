@@ -63,7 +63,7 @@ ohmyzsh/ohmyzsh path:plugins/ssh-agent kind:defer
 
 # ─── Utility Plugins ─────────────────────────────────────────────────────────
 # rupa/z
-# zpm-zsh/autoenv: replaced by direnv (hooked in the zsh-config plugin)
+# zpm-zsh/autoenv: replaced by direnv (hooked in zshrc.d/75-tools.zsh)
 # mattmc3/zfunctions  # Fish-style functions (commented if unused)
 mattmc3/zshrinkwrap
 # Rakosn1cek/XC-Manager
@@ -72,6 +72,8 @@ mattmc3/zshrinkwrap
 # ─── Custom Theme (optional manual sourcing) ─────────────────────────────────
 # ${ZDOTDIR:-$HOME}/custom/themes/yupps.zsh-theme
 # JordanBradshaw/zsh-config kind:zsh branch:plugin
+# Personal plugin jordanbradshaw/yupps-zsh: loaded by zshrc.d/71-custom-plugin.zsh,
+# not antidote, so its updates never need a rebundle.
 
 zsh-users/zsh-autosuggestions
 
