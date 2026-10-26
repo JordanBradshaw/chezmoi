@@ -52,8 +52,8 @@ al() {
 # real CODE: like al, with the real manifest loaded.
 real() { al "apps_load '$APPS_TSV' || exit 9; $1"; }
 
-HEADER='# name tier bundle apt pacman dnf brew release file assets build'
-RG_ROW='rg core y ripgrep ripgrep ripgrep ripgrep BurntSushi/ripgrep rg musl|gnu crate:ripgrep:rg'
+HEADER='# name tier portable apt pacman dnf brew release file assets build'
+RG_ROW='rg core zssh,dev ripgrep ripgrep ripgrep ripgrep BurntSushi/ripgrep rg musl|gnu crate:ripgrep:rg'
 
 test_real_manifest_loads() {
     al "apps_load '$APPS_TSV'"
@@ -61,14 +61,14 @@ test_real_manifest_loads() {
 }
 
 test_header_must_name_every_column() {
-    printf '%s\n' '# name tier bundle apt pacman dnf brew release file assets' >"$SANDBOX/a.tsv"
+    printf '%s\n' '# name tier portable apt pacman dnf brew release file assets' >"$SANDBOX/a.tsv"
     al "apps_load '$SANDBOX/a.tsv'"
     assert_eq "$STATUS" 1
     assert_match "$OUTPUT" 'header'
 }
 
 test_short_row_names_line() {
-    printf '%s\n\n%s\n' "$HEADER" 'rg core y a b c d e f g' >"$SANDBOX/a.tsv"
+    printf '%s\n\n%s\n' "$HEADER" 'rg core zssh a b c d e f g' >"$SANDBOX/a.tsv"
     al "apps_load '$SANDBOX/a.tsv'"
     assert_eq "$STATUS" 1
     assert_match "$OUTPUT" "a.tsv:3: 10 fields, expected 11"
@@ -82,8 +82,8 @@ test_duplicate_name_fails() {
 }
 
 test_columns_read_by_name() {
-    printf '%s\n%s\n' '# build tier bundle apt pacman dnf brew release file assets name' \
-        'crate:ripgrep:rg core y a b c d e f g rg' >"$SANDBOX/a.tsv"
+    printf '%s\n%s\n' '# build tier portable apt pacman dnf brew release file assets name' \
+        'crate:ripgrep:rg core zssh a b c d e f g rg' >"$SANDBOX/a.tsv"
     al "apps_load '$SANDBOX/a.tsv' && app rg build"
     assert_eq "$OUTPUT" "crate:ripgrep:rg"
 }
@@ -95,11 +95,31 @@ test_known_tiers() {
     assert_eq "$OUTPUT" ""
 }
 
-test_bundle_rows_have_a_source() {
-    real 'for n in $(apps_names --bundle); do
+test_portable_rows_have_a_source() {
+    real 'for n in $(apps_names --portable zssh; apps_names --portable dev); do
         [[ $(app "$n" release) != - || $(app "$n" build) != - ]] || echo "$n: no release and no build"
     done'
     assert_eq "$OUTPUT" ""
+}
+
+test_known_portable_values() {
+    real 'for n in "${APPS_NAMES[@]}"; do
+        case $(app "$n" portable) in zssh|dev|zssh,dev|-) ;; *) echo "$n: bad portable $(app "$n" portable)" ;; esac
+    done'
+    assert_eq "$OUTPUT" ""
+}
+
+# The dev bundle is built on x86 from releases only, so a dev row needs one.
+test_dev_rows_have_release() {
+    real 'for n in $(apps_names --portable dev); do
+        [[ $(app "$n" release) != - ]] || echo "$n: dev row has no release"
+    done'
+    assert_eq "$OUTPUT" ""
+    printf '%s\n%s\n' "$HEADER" 'nor core dev a b c d - f g crate:nor' >"$SANDBOX/a.tsv"
+    al "apps_load '$SANDBOX/a.tsv'; for n in \$(apps_names --portable dev); do
+        [[ \$(app \"\$n\" release) != - ]] || echo \"\$n: dev row has no release\"
+    done"
+    assert_eq "$OUTPUT" "nor: dev row has no release"
 }
 
 test_known_build_sources() {
@@ -124,24 +144,24 @@ test_lock_names_in_manifest() {
         n=$((n + 1))
         real "while IFS=\$'\\t' read -r name src ver; do
             [[ \$name == '#'* || -z \$name ]] && continue
-            [[ \$(app \"\$name\" bundle) == y ]] || { echo \"\$name: not a bundle row\"; continue; }
+            [[ \$(app \"\$name\" portable) == *zssh* ]] || { echo \"\$name: not a zssh row\"; continue; }
             want=\$(app \"\$name\" build); [[ \$want == - ]] && want=release
             [[ \$src == \"\$want\" ]] || echo \"\$name: lock source \$src, manifest \$want\"
         done <'$lock'"
         [[ -z $OUTPUT ]] || fail "$(basename "$lock"): $OUTPUT"
     done
-    ((n >= 2)) || fail "expected locks in apps/locks"
+    ((n >= 1)) || fail "expected locks in apps/locks"
 }
 
 test_merged_rows() {
-    real 'printf "%s|" "$(app rg apt)" "$(app tspin tier)" "$(app nu release)" "$(app atuin build)" "$(app lazydocker tier)" "$(app firacode bundle)"'
+    real 'printf "%s|" "$(app rg apt)" "$(app tspin tier)" "$(app nu release)" "$(app atuin build)" "$(app lazydocker tier)" "$(app firacode portable)"'
     assert_eq "$OUTPUT" "ripgrep|extra|nushell/nushell|-|desktop|-|"
 }
 
 # pipx installs on hosts only; build-tools.sh has no pipx recipe.
-test_pipx_rows_not_bundled() {
-    real 'for n in $(apps_names --bundle); do
-        [[ $(app "$n" build) == pipx:* ]] && echo "$n: bundled pipx row"
+test_pipx_rows_not_portable() {
+    real 'for n in $(apps_names --portable zssh; apps_names --portable dev); do
+        [[ $(app "$n" build) == pipx:* ]] && echo "$n: portable pipx row"
     done'
     assert_eq "$OUTPUT" ""
 }
@@ -174,8 +194,8 @@ test_desktop_rows() {
             [[ $(app "$n" tier) == desktop ]] || echo "$n: tier $(app "$n" tier)"
         done
         printf "%s|" "$(app lazygit release)" "$(app tori file)" "$(app cloudflared assets)" \
-            "$(app lsnet build)" "$(app xxh build)" "$(app jtui build)" "$(app prettyping apt)" "$(app lsoff bundle)"'
-    assert_eq "$OUTPUT" "jesseduffield/lazygit|tori*|^fips|crate:lsnet|pipx:xxh-xxh|pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui|prettyping|y|"
+            "$(app lsnet build)" "$(app xxh build)" "$(app jtui build)" "$(app prettyping apt)" "$(app lsoff portable)"'
+    assert_eq "$OUTPUT" "jesseduffield/lazygit|tori*|^fips|crate:lsnet|pipx:xxh-xxh|pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui|prettyping|zssh,dev|"
 }
 
 test_desktop_rows_not_on_servers() {
@@ -184,12 +204,23 @@ test_desktop_rows_not_on_servers() {
 }
 
 test_apps_names_filters() {
-    real 'apps_names --tier core | tr "\n" " "; echo; apps_names --bundle | tr "\n" " "'
-    local core=" ${OUTPUT%%$'\n'*}" bundle=" ${OUTPUT#*$'\n'}"
+    real 'apps_names --tier core | tr "\n" " "; echo; apps_names --portable dev | tr "\n" " "; echo; apps_names --portable zssh | tr "\n" " "'
+    local core=" ${OUTPUT%%$'\n'*}" rest=${OUTPUT#*$'\n'}
+    local dev=" ${rest%%$'\n'*}" zssh=" ${rest#*$'\n'}"
     assert_match "$core" ' curl '
     [[ $core != *lazydocker* ]] || fail "core has lazydocker"
-    assert_match "$bundle" 'lazydocker'
-    [[ " $bundle" != *' curl '* ]] || fail "bundle has curl"
+    assert_match "$dev" 'lazydocker'
+    [[ $dev != *' tmux '* ]] || fail "dev has tmux"
+    [[ $dev != *' curl '* ]] || fail "dev has curl"
+    assert_match "$zssh" ' tmux '
+}
+
+test_portable_filter_matches_list_members() {
+    printf '%s\n%s\n%s\n%s\n' "$HEADER" \
+        'both core zssh,dev a b c d r f g -' 'devonly core dev a b c d r f g -' 'none core - a b c d r f g -' >"$SANDBOX/a.tsv"
+    al "apps_load '$SANDBOX/a.tsv'; apps_names --portable zssh | tr '\n' ' '; echo; apps_names --portable dev | tr '\n' ' '"
+    assert_eq "$OUTPUT" "both 
+both devonly "
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
