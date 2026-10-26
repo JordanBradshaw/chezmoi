@@ -2,7 +2,7 @@
 # manifest (apps.tsv) reader, architectures, eget asset selection, ELF checks
 # and the GitHub token. Bash and coreutils only; sets no shell options.
 
-APPS_COLUMNS=(name tier bundle apt pacman dnf brew release file assets build)
+APPS_COLUMNS=(name tier portable apt pacman dnf brew release file assets build)
 APPS_FILE="${APPS_FILE:-$(dirname "${BASH_SOURCE[0]}")/apps.tsv}"
 declare -ga APPS_NAMES=()
 declare -gA APP=()
@@ -62,13 +62,13 @@ apps_load() {
     fi
 }
 
-# apps_names [--tier T | --bundle]: print app names in file order.
+# apps_names [--tier T | --portable T]: print app names in file order.
 apps_names() {
     local n
     for n in "${APPS_NAMES[@]}"; do
         case ${1:-} in
             --tier) [[ ${APP[$n,tier]} == "${2:-}" ]] || continue ;;
-            --bundle) [[ ${APP[$n,bundle]} == y ]] || continue ;;
+            --portable) [[ ,${APP[$n,portable]}, == *,"${2:-}",* ]] || continue ;;
         esac
         echo "$n"
     done

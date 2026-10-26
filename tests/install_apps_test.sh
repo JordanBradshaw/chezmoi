@@ -955,7 +955,7 @@ test_cargo_args_passed() {
     stub eget
     stub_cargo
     cat >"$SANDBOX/apps.tsv" <<'INNER'
-# name tier bundle apt pacman dnf brew release file assets build
+# name tier portable apt pacman dnf brew release file assets build
 x core - x x x x - - - crate:x:x:--no-default-features,--features,rustls
 INNER
     APPS_FILE="$SANDBOX/apps.tsv" run_apps --machine container --build cargo
