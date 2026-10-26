@@ -154,8 +154,8 @@ $CARGO_LINE"
 test_legacy_repo_zshenvs_are_replaced_keeping_appended_lines() {
     local rev
     for rev in b2f284e b0d2f72; do
-        git -C "$REPO_DIR" show "$rev:home/dot_zshenv" >"$HOME_DIR/.zshenv" ||
-            { fail "no legacy .zshenv $rev in git"; continue; }
+        cp "$REPO_DIR/tests/fixtures/legacy/zshenv-$rev" "$HOME_DIR/.zshenv" ||
+            { fail "no legacy .zshenv fixture $rev"; continue; }
         printf '%s\n' "$CARGO_LINE" >>"$HOME_DIR/.zshenv"
         apply_zsh
         assert_eq "$(zshenv)" "$ENV_BLOCK
@@ -324,10 +324,10 @@ $PNPM_BLOCK"
 }
 
 # Earlier versions of this repo wrote the whole .zshrc: the pre-split one
-# (git 293e292) and the plain .zshrc.d loader. Both go; appended lines stay.
+# (fixture zshrc-293e292) and the plain .zshrc.d loader. Both go; appended lines stay.
 test_old_repo_zshrcs_are_replaced_keeping_appended_lines() {
-    git -C "$REPO_DIR" show 293e292:home/private_dot_config/zsh/dot_zshrc >"$HOME_DIR/$ZDOT/.zshrc" ||
-        { fail "no legacy .zshrc in git"; return; }
+    cp "$REPO_DIR/tests/fixtures/legacy/zshrc-293e292" "$HOME_DIR/$ZDOT/.zshrc" ||
+        { fail "no legacy .zshrc fixture"; return; }
     printf '\n%s\n' "$PNPM_BLOCK" >>"$HOME_DIR/$ZDOT/.zshrc"
     apply_zsh
     assert_eq "$(zshrc)" "$RC_BLOCK
