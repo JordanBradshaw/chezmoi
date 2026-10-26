@@ -161,7 +161,7 @@ load_github_token() {
 
 # fetch_release NAME REPO FILE SPEC ARCH OUT [TAG]: download NAME's release
 # binary for ARCH to OUT with eget, trying each asset alternative of SPEC (see
-# tools.tsv) until one is an ELF binary for ARCH. TAG pins the release.
+# apps/apps.tsv's assets column) until one is an ELF binary for ARCH. TAG pins the release.
 # Fails, leaving nothing at OUT, when no alternative fits.
 fetch_release() {
     local name=$1 repo=$2 file=$3 spec=$4 arch=$5 out=$6 tag=${7:-} filters cfg
