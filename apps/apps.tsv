@@ -1,0 +1,88 @@
+# The app manifest: every app the dotfiles install (install-apps.sh) or bundle
+# (portable build-tools.sh). One row per binary; whitespace-separated, "-" for none.
+# Blank lines and "#" lines are comments, except the header below.
+#
+# Columns:
+#   name     binary name, installed as "name".
+#   tier     install-apps tier: core, extra, desktop; "-" = bundle only.
+#   bundle   "y" = shipped in portable bundles.
+#   apt pacman dnf brew
+#            package name per package manager; "-" = not packaged.
+#   release  GitHub owner/name to download a release binary from with eget.
+#   file     binary to extract from the release asset (an eget --file glob).
+#   assets   "|"-separated alternatives tried in order; each alternative is a
+#            ","-separated list of eget --asset filters (^ excludes); "-"
+#            means no filters. Package and checksum files are always
+#            excluded. eget picks among what is left using --system, but a
+#            filter that leaves one asset wins even for the wrong CPU, so
+#            every download is checked with elf_arch and the next alternative
+#            tried. On armv7l each alternative is first tried with an extra
+#            "armv7" filter.
+#   build    how build-tools.sh makes it for a profile (see its header) and
+#            install-apps --build cargo: crate:CRATE[:BIN][:ARGS],
+#            go:MODULE[//SUBPKG], cross:NAME (built with cross/NAME.sh ARCH
+#            OUT, e.g. tmux with the Jetson Yocto SDK), or "-" = take the
+#            release download. Rows sharing a crates.io name with another
+#            project (usbtree), needing C libraries the static build lacks
+#            (rustnet: libpcap, atuin: OpenSSL, tracexec: libbpf/libelf,
+#            comchan: fontconfig), not building against musl (cyme),
+#            crashing rustc under fat LTO (zellij) or having go.mod replace
+#            directives go install refuses (ctop) use the release.
+#
+# Static musl builds come first so binaries run on older glibc (JetPack 4 is
+# Ubuntu 18.04). A tool with no build for an arch is skipped with a warning.
+# name           tier     bundle  apt             pacman         dnf              brew            release                         file           assets                                build
+  curl           core     -       curl            curl           curl             curl            -                               -              -                                     -
+  git            core     -       git             git            git              git             -                               -              -                                     -
+  unzip          core     -       unzip           unzip          unzip            unzip           -                               -              -                                     -
+  fzf            core     y       fzf             fzf            fzf              fzf             junegunn/fzf                    fzf            tar.gz                                go:github.com/junegunn/fzf
+  bat            core     y       bat             bat            bat              bat             sharkdp/bat                     bat            musl|gnu                              crate:bat
+  eza            core     y       eza             eza            eza              eza             eza-community/eza               eza            musl,tar.gz|gnu,tar.gz,^no_libgit     crate:eza
+  lsd            core     y       lsd             lsd            lsd              lsd             lsd-rs/lsd                      lsd            musl|gnu                              crate:lsd
+  rg             core     y       ripgrep         ripgrep        ripgrep          ripgrep         BurntSushi/ripgrep              rg             musl|gnu                              crate:ripgrep:rg
+  fd             core     y       fd-find         fd             fd-find          fd              sharkdp/fd                      fd             musl|gnu                              crate:fd-find:fd
+  delta          core     y       git-delta       git-delta      git-delta        git-delta       dandavison/delta                delta          musl|gnu                              crate:git-delta:delta
+  zoxide         core     y       zoxide          zoxide         zoxide           zoxide          ajeetdsouza/zoxide              zoxide         musl                                  crate:zoxide
+  atuin          core     y       atuin           atuin          atuin            atuin           atuinsh/atuin                   atuin          musl,^server|gnu,^server              -
+  direnv         core     y       direnv          direnv         direnv           direnv          direnv/direnv                   direnv         -                                     go:github.com/direnv/direnv/v2
+  miller         extra    -       miller          miller         miller           miller          -                               -              -                                     -
+  nu             extra    -       -               nushell        -                nushell         nushell/nushell                 nu             musl                                  crate:nu
+  gh             extra    -       gh              github-cli     gh               gh              -                               -              -                                     -
+  tspin          extra    y       tailspin        tailspin       tailspin         tailspin        bensadeh/tailspin               tspin          musl|gnu                              crate:tailspin:tspin
+  procs          extra    y       procs           procs          procs            procs           dalance/procs                   procs          zip                                   crate:procs
+  duf            extra    y       duf             duf            duf              duf             muesli/duf                      duf            tar.gz                                go:github.com/muesli/duf
+  dust           extra    y       du-dust         dust           du-dust          dust            bootandy/dust                   dust           musl|gnu                              crate:du-dust:dust
+  btm            extra    y       btm             bottom         bottom           bottom          ClementTsang/bottom             btm            musl,tar.gz|gnu,tar.gz                crate:bottom:btm
+  htop           extra    -       htop            htop           htop             htop            -                               -              -                                     -
+  tmux           extra    y       tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux
+  starship       extra    -       starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship
+  micro          extra    -       micro           micro          micro            micro           -                               -              -                                     -
+  neovim         extra    -       neovim          neovim         neovim           neovim          -                               -              -                                     -
+  most           extra    -       most            most           most             most            -                               -              -                                     -
+  xfr            extra    y       -               -              -                -               lance0/xfr                      xfr            musl|gnu                              crate:xfr
+  snitch         extra    y       -               -              -                -               karol-broda/snitch              snitch         tar.gz                                go:github.com/karol-broda/snitch
+  usbtree        extra    y       -               -              -                -               gnomeria/usbtree                usbtree        tar.gz                                -
+  rustscan       extra    -       -               rustscan       -                rustscan        bee-san/RustScan                rustscan       x86-linux                             crate:rustscan
+  firacode       desktop  -       fonts-firacode  ttf-fira-code  fira-code-fonts  font-fira-code  -                               -              -                                     -
+  lazydocker     -        y       -               -              -                -               jesseduffield/lazydocker        lazydocker     tar.gz|x86_64,tar.gz                  go:github.com/jesseduffield/lazydocker
+  lazyjournal    -        y       -               -              -                -               Lifailon/lazyjournal            lazyjournal    -                                     go:github.com/Lifailon/lazyjournal
+  bandwhich      -        y       -               -              -                -               imsnif/bandwhich                bandwhich      musl|gnu                              crate:bandwhich
+  diskwatch      -        y       -               -              -                -               matthart1983/diskwatch          diskwatch*     static|-                              crate:diskwatch
+  lsoff          -        y       -               -              -                -               yutat23/lsoff                   lsoff          -                                     go:github.com/yutat23/lsoff
+  systeroid      -        y       -               -              -                -               orhun/systeroid                 systeroid      musl,^all-features|gnu,^all-features  crate:systeroid
+  systeroid-tui  -        y       -               -              -                -               orhun/systeroid                 systeroid-tui  musl,^all-features|gnu,^all-features  crate:systeroid-tui
+  systemctl-tui  -        y       -               -              -                -               rgwood/systemctl-tui            systemctl-tui  musl|gnu                              crate:systemctl-tui
+  rustnet        -        y       -               -              -                -               domcyrus/rustnet                rustnet        musl|gnu                              -
+  trip           -        y       -               -              -                -               fujiapple852/trippy             trip           musl|gnu                              crate:trippy:trip
+  gping          -        y       -               -              -                -               orf/gping                       gping          musl|gnu|-                            crate:gping
+  tracexec       -        y       -               -              -                -               kxxt/tracexec                   tracexec       static|-                              -
+  cyme           -        y       -               -              -                -               tuna-f1sh/cyme                  cyme           musl|gnu                              -
+  viddy          -        y       -               -              -                -               sachaos/viddy                   viddy          tar.gz                                crate:viddy
+  lnav           -        y       -               -              -                -               tstack/lnav                     lnav           musl                                  -
+  zellij         -        y       -               -              -                -               zellij-org/zellij               zellij         musl,^no-web|musl                     -
+  ctop           -        y       -               -              -                -               bcicen/ctop                     ctop*          -                                     -
+  dive           -        y       -               -              -                -               wagoodman/dive                  dive           tar.gz                                go:github.com/wagoodman/dive
+  comchan        -        y       -               -              -                -               Vaishnav-Sabari-Girish/ComChan  comchan        musl|gnu                              -
+  binsider       -        y       -               -              -                -               orhun/binsider                  binsider       musl|gnu                              crate:binsider
+  pueue          -        y       -               -              -                -               Nukesor/pueue                   pueue*         pueue-                                crate:pueue
+  pueued         -        y       -               -              -                -               Nukesor/pueue                   pueued*        pueued                                crate:pueue:pueued
