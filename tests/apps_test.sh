@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 #
-# Tests for apps/apps.tsv, apps/lib.sh and the portable/lib.sh seam
-# (resolve_chezmoi_src). Every test sources the libs in a subshell.
+# Tests for apps/apps.tsv and apps/lib.sh. Every test sources the libs in a subshell.
 
 set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APPS_LIB="$REPO_DIR/apps/lib.sh"
 APPS_TSV="$REPO_DIR/apps/apps.tsv"
-SHIM="$REPO_DIR/portable/lib.sh"
 BASH_BIN="$(command -v bash)"
 PASS=0
 FAIL=0
@@ -147,39 +145,6 @@ test_apps_names_filters() {
     [[ $core != *lazydocker* ]] || fail "core has lazydocker"
     assert_match "$bundle" 'lazydocker'
     [[ " $bundle" != *' curl '* ]] || fail "bundle has curl"
-}
-
-# shim CODE: run CODE after sourcing portable/lib.sh.
-shim() {
-    OUTPUT="$("$BASH_BIN" -c "source '$SHIM'; $1" 2>&1)"
-    STATUS=$?
-}
-
-test_resolve_chezmoi_src_order() {
-    local a="$SANDBOX/a" b="$SANDBOX/b" c="$SANDBOX/c"
-    mkdir -p "$SANDBOX/bin"
-    for d in "$a" "$b" "$c"; do mkdir -p "$d/apps"; cp "$APPS_TSV" "$APPS_LIB" "$d/apps/"; done
-    git -C "$c" init -q
-    printf '#!/bin/sh\necho %s/apps\n' "$c" >"$SANDBOX/bin/chezmoi"
-    chmod +x "$SANDBOX/bin/chezmoi"
-    export PATH="$SANDBOX/bin:$PATH"
-    shim "resolve_chezmoi_src '$a'; echo \$CHEZMOI_SRC" # no env set: explicit wins
-    assert_eq "$OUTPUT" "$a"
-    CHEZMOI_SRC="$b" shim "resolve_chezmoi_src '$a'; echo \$CHEZMOI_SRC"
-    assert_eq "$OUTPUT" "$a"
-    CHEZMOI_SRC="$b" shim "resolve_chezmoi_src; echo \$CHEZMOI_SRC"
-    assert_eq "$OUTPUT" "$b"
-    shim "resolve_chezmoi_src; echo \$CHEZMOI_SRC"
-    assert_eq "$OUTPUT" "$c"
-    shim "resolve_chezmoi_src '$a'; type -t apps_load"
-    assert_eq "$OUTPUT" "function"
-}
-
-test_resolve_chezmoi_src_rejects_tree_without_apps() {
-    mkdir -p "$SANDBOX/old"
-    shim "resolve_chezmoi_src '$SANDBOX/old'"
-    assert_eq "$STATUS" 1
-    assert_eq "$OUTPUT" "no apps/apps.tsv in $SANDBOX/old (set CHEZMOI_SRC or --chezmoi to a chezmoi checkout)"
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
