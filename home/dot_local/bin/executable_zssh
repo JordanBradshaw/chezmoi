@@ -64,7 +64,8 @@ if [[ -z $builder ]]; then
 fi
 
 if [[ -z ${CHEZMOI_SRC:-} ]]; then
-    if CHEZMOI_SRC="$(git -C "$(chezmoi source-path)" rev-parse --show-toplevel 2>/dev/null)"; then
+    sp="$(chezmoi source-path 2>/dev/null)" || sp=""
+    if [[ -n $sp ]] && CHEZMOI_SRC="$(git -C "$sp" rev-parse --show-toplevel 2>/dev/null)" && [[ -n $CHEZMOI_SRC ]]; then
         :
     elif [[ -z ${ZSSH_BUILDER:-} ]]; then
         echo "zssh: set CHEZMOI_SRC to your chezmoi checkout" >&2
