@@ -44,6 +44,16 @@
     include = ["*.ttf"]
     refreshPeriod = "168h"
 
+# Portable-bundle builder; zssh runs ~/.local/share/chezmoi-deploy/portable/build.sh.
+[".local/share/chezmoi-deploy"]
+    type = "git-repo"
+    url = "https://github.com/JordanBradshaw/chezmoi-deploy.git"
+    refreshPeriod = "168h"
+    [".local/share/chezmoi-deploy".clone]
+        args = ["--depth", "1"]
+    [".local/share/chezmoi-deploy".pull]
+        args = ["--ff-only"]
+
 [".local/share/icons/candy-icons"]
     type = "git-repo"
     url = "https://github.com/EliverLara/candy-icons.git"

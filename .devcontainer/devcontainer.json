@@ -12,7 +12,7 @@
     8081
   ],
   "containerUser": "root",
-  "postCreateCommand": "apt update && apt install -y git curl && git clone --branch config --single-branch https://github.com/JordanBradshaw/zsh-config.git \"$HOME/dotfiles\" && bash \"$HOME/dotfiles/install.sh\"",
+  "postCreateCommand": "apt update && apt install -y git curl && git clone https://github.com/JordanBradshaw/chezmoi.git \"$HOME/dotfiles\" && bash \"$HOME/dotfiles/install.sh\"",
   "customizations": {
     // "overrideCommand": false,
     // Configure properties specific to VS Code.
