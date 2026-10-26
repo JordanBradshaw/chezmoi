@@ -374,6 +374,21 @@ test_zssh_builder_override_tolerates_failing_chezmoi() {
     ! grep -q boom <<<"$OUTPUT" || fail "chezmoi stderr leaked"
 }
 
+test_deploy_external_desktop_only() {
+    local m
+    for m in desktop server; do
+        printf '[data]\n    machine = "%s"\n    hasSecrets = false\n' "$m" >"$SANDBOX/chezmoi.toml"
+        OUTPUT="$(chezmoi --source="$REPO_DIR" --config="$SANDBOX/chezmoi.toml" \
+            --persistent-state="$SANDBOX/p.db" --destination="$SANDBOX/dest" execute-template \
+            <"$REPO_DIR/home/.chezmoiexternal.toml.tmpl" 2>/dev/null)"
+        if [[ $m == desktop ]]; then
+            grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "desktop lacks chezmoi-deploy external"
+        else
+            ! grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "server has chezmoi-deploy external"
+        fi
+    done
+}
+
 # ---------------------------------------------------------------------------
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
