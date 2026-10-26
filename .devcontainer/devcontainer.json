@@ -1,0 +1,42 @@
+{
+  "image": "ubuntu:24.04",
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=seccomp=unconfined"
+  ],
+  "containerEnv": {
+    "SHELL": "/bin/bash",
+    "DISPLAY": "unix:0"
+  },
+  "forwardPorts": [
+    8081
+  ],
+  "containerUser": "root",
+  "postCreateCommand": "apt update && apt install -y git curl && git clone --branch config --single-branch https://github.com/JordanBradshaw/zsh-config.git \"$HOME/dotfiles\" && bash \"$HOME/dotfiles/install.sh\"",
+  "customizations": {
+    // "overrideCommand": false,
+    // Configure properties specific to VS Code.
+    "vscode": {
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        "mhutchie.git-graph",
+        "eamodio.gitlens",
+        "gitlab.gitlab-workflow",
+        "gruntfuggly.todo-tree",
+        "redhat.vscode-yaml",
+        "jacqueslucke.gcov-viewer",
+        "ms-azuretools.vscode-docker",
+        "cheshirekow.cmake-format",
+        "rust-lang.rust-analyzer",
+        "ms-python.black-formatter",
+        "tamasfe.even-better-toml",
+        "ms-azuretools.vscode-containers",
+        "zxh404.vscode-proto3",
+        "anysphere.cpptools"
+      ]
+    }
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.cache/sccache,target=/home/ubuntu/.cache/sccache,type=bind,consistency=cached"
+  ]
+}
