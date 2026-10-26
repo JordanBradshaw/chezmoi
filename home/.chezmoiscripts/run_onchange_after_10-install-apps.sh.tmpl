@@ -2,5 +2,7 @@
 {{- $build := "prebuilt" }}
 {{- if hasKey . "appsBuild" }}{{ $build = .appsBuild }}{{ end }}
 # install-apps.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/install-apps.sh") | sha256sum }}
+# apps.tsv hash: {{ include (joinPath .chezmoi.workingTree "apps/apps.tsv") | sha256sum }}
+# lib.sh hash: {{ include (joinPath .chezmoi.workingTree "apps/lib.sh") | sha256sum }}
 # appsBuild: {{ $build }}
 exec "{{ .chezmoi.workingTree }}/scripts/install-apps.sh" --machine {{ .machine }} --build {{ $build }}

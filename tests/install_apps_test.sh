@@ -23,18 +23,20 @@ setup() {
     STUBS="$SANDBOX/stubs"
     export HOME="$SANDBOX/home"
     export STUB_LOG="$SANDBOX/calls.log"
+    export STUBS
     mkdir -p "$STUBS" "$HOME"
     : >"$STUB_LOG"
 
     # Real tools the script may need, without exposing real package managers.
     local tool
-    for tool in mkdir; do
+    for tool in mkdir dirname head od tr mktemp rm mv; do
         ln -s "$(command -v "$tool")" "$STUBS/$tool"
     done
 
     unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN \
-        STUB_FAIL_PKGS STUB_FAIL_CRATES APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
+        STUB_FAIL_PKGS STUB_FAIL_CRATES STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
     stub sudo
+    stub_uname
 }
 
 teardown() {
@@ -46,6 +48,10 @@ teardown() {
 # skipping its own -n flag.
 stub() {
     local name="$1"
+    if [[ $name == eget ]]; then
+        stub_eget_logging
+        return
+    fi
     if [[ $name == sudo ]]; then
         cat >"$STUBS/sudo" <<'EOF'
 #!/usr/bin/env bash
@@ -91,15 +97,45 @@ stub_nala_failing() {
     sed -i "2a [[ \$1 == $1 ]] \&\& exit 1" "$STUBS/nala"
 }
 
-# stub_eget_logging: eget stub that only logs, including the token it sees.
-# It is called with `--file NAME`, so it must not honour STUB_FAIL_PKGS.
+# fake_elf FILE CLASS MACHINE: write a minimal little-endian ELF header.
+fake_elf() {
+    {
+        printf '\x7fELF'
+        printf "\\x$(printf %02x "$2")"
+        printf '\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00'
+        printf "\\x$(printf %02x $(($3 & 255)))\\x$(printf %02x $(($3 >> 8)))"
+    } >"$1"
+}
+
+# stub_eget_logging: eget stub that logs, including the token it sees, and
+# writes a fake ELF to its --to path (x86_64, or STUB_ELF_MACHINE). It is
+# called with `--file NAME`, so it must not honour STUB_FAIL_PKGS.
 stub_eget_logging() {
-    cat >"$STUBS/eget" <<'EOF'
-#!/usr/bin/env bash
+    {
+        echo '#!/usr/bin/env bash'
+        declare -f fake_elf
+        cat <<'INNER'
 echo "eget $*" >>"$STUB_LOG"
 echo "token=${EGET_GITHUB_TOKEN:-}" >>"$STUB_LOG"
-EOF
+to=""
+while (( $# )); do [[ $1 == --to ]] && to=$2; shift; done
+[[ -n $to ]] && fake_elf "$to" 2 "${STUB_ELF_MACHINE:-62}"
+exit 0
+INNER
+    } >"$STUBS/eget"
     chmod +x "$STUBS/eget"
+}
+
+# stub_uname: answers -m (x86_64, or STUB_UNAME_M) and -s (Linux, or STUB_UNAME_S).
+stub_uname() {
+    cat >"$STUBS/uname" <<'INNER'
+#!/usr/bin/env bash
+case ${1:-} in
+    -s) echo "${STUB_UNAME_S:-Linux}" ;;
+    *) echo "${STUB_UNAME_M:-x86_64}" ;;
+esac
+INNER
+    chmod +x "$STUBS/uname"
 }
 
 # Shebangs use /usr/bin/env, so stubs need env and bash on PATH as well.
@@ -251,7 +287,7 @@ test_apt_extra_uses_eget_for_nushell() {
     run_apps --machine server --no-nala
     assert_status 0
     refute_call_matches "^apt-get install .*nushell"
-    assert_call "eget nushell/nushell --file nu --asset musl --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file nu .*--to $HOME/.local/bin/nu .*nushell/nushell$"
 }
 
 # Not packaged anywhere: always installed from GitHub releases.
@@ -262,9 +298,9 @@ assert_network_tools_from_eget() {
     run_apps --machine server --no-nala
     assert_status 0
     refute_call_matches "^($pm|nala) .*\b(xfr|snitch|usbtree)\b"
-    assert_call "eget lance0/xfr --file xfr --asset musl --to $HOME/.local/bin"
-    assert_call "eget karol-broda/snitch --file snitch --asset tar.gz --to $HOME/.local/bin"
-    assert_call "eget gnomeria/usbtree --file usbtree --asset tar.gz --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file xfr .*--to $HOME/.local/bin/xfr .*lance0/xfr$"
+    assert_call_matches "^eget .*--file snitch .*--to $HOME/.local/bin/snitch .*karol-broda/snitch$"
+    assert_call_matches "^eget .*--file usbtree .*--to $HOME/.local/bin/usbtree .*gnomeria/usbtree$"
 }
 
 test_apt_network_tools_come_from_eget() {
@@ -277,7 +313,7 @@ test_apt_installs_rustscan_from_eget() {
     run_apps --machine server --no-nala
     assert_status 0
     refute_call_matches "^apt-get install .*\brustscan\b"
-    assert_call "eget bee-san/RustScan --file rustscan --asset x86-linux --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file rustscan .*--to $HOME/.local/bin/rustscan .*bee-san/RustScan$"
 }
 
 test_pacman_installs_rustscan_package() {
@@ -317,7 +353,7 @@ test_pacman_uses_pacman_names() {
     assert_call_matches "^pacman -S --needed --noconfirm .*\bbottom\b"
     assert_call_matches "^pacman -S --needed --noconfirm .*\bnushell\b"
     # Only tools with no pacman package (xfr, snitch) come from eget.
-    refute_call_matches "^eget (nushell|bootandy|ajeetdsouza|atuinsh|direnv|eza-community|starship|dalance)/"
+    refute_call_matches "^eget .* (nushell/nushell|bootandy/dust|ajeetdsouza/zoxide|atuinsh/atuin|direnv/direnv|eza-community/eza|starship/starship|dalance/procs)$"
 }
 
 test_dnf_uses_dnf_names() {
@@ -342,12 +378,12 @@ test_brew_runs_without_sudo() {
 test_batch_failure_falls_back_to_one_by_one() {
     stub apt-get
     stub eget
-    export STUB_FAIL_PKGS="tailspin"
+    export STUB_FAIL_PKGS="htop"
     run_apps --machine server --no-nala
     assert_status 1
     assert_call "apt-get install -y --no-install-recommends gh"
-    assert_call "apt-get install -y --no-install-recommends tailspin"
-    assert_output_matches "[Ff]ailed.*tailspin"
+    assert_call "apt-get install -y --no-install-recommends htop"
+    assert_output_matches "[Ff]ailed.*htop"
 }
 
 test_failed_install_falls_back_to_eget() {
@@ -356,7 +392,7 @@ test_failed_install_falls_back_to_eget() {
     export STUB_FAIL_PKGS="nushell"
     run_apps --machine server
     assert_status 0
-    assert_call "eget nushell/nushell --file nu --asset musl --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file nu .*--to $HOME/.local/bin/nu .*nushell/nushell$"
 }
 
 test_shell_tools_fall_back_to_eget_releases() {
@@ -365,9 +401,9 @@ test_shell_tools_fall_back_to_eget_releases() {
     export STUB_FAIL_PKGS="zoxide atuin direnv"
     run_apps --machine container
     assert_status 0
-    assert_call "eget ajeetdsouza/zoxide --file zoxide --asset musl --to $HOME/.local/bin"
-    assert_call "eget atuinsh/atuin --file atuin --asset gnu.tar.gz --asset ^server --to $HOME/.local/bin"
-    assert_call "eget direnv/direnv --file direnv --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file zoxide .*--to $HOME/.local/bin/zoxide .*ajeetdsouza/zoxide$"
+    assert_call_matches "^eget .*--file atuin .*--to $HOME/.local/bin/atuin .*atuinsh/atuin$"
+    assert_call_matches "^eget .*--file direnv .*--to $HOME/.local/bin/direnv .*direnv/direnv$"
 }
 
 test_eza_falls_back_to_eget_release() {
@@ -377,25 +413,65 @@ test_eza_falls_back_to_eget_release() {
     run_apps --machine container
     assert_status 0
     assert_call "apt-get install -y --no-install-recommends eza"
-    assert_call "eget eza-community/eza --file eza --asset gnu.tar.gz --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file eza .*--to $HOME/.local/bin/eza .*eza-community/eza$"
+}
+
+test_first_asset_try_uses_manifest_filters() {
+    stub apt-get
+    stub_eget_logging
+    export STUB_FAIL_PKGS="eza"
+    run_apps --machine container
+    assert_status 0
+    assert_call_matches "^eget .*--file eza .*--asset=musl --asset=tar\.gz "
+}
+
+test_release_for_wrong_arch_is_reported() {
+    stub apt-get
+    stub_eget_logging
+    export STUB_FAIL_PKGS="eza" STUB_ELF_MACHINE=183
+    run_apps --machine container
+    assert_status 1
+    assert_output_matches "Failed to install:.*eza"
+}
+
+test_release_on_non_linux_fails_clearly() {
+    stub brew
+    stub_eget_logging
+    export STUB_UNAME_S=Darwin
+    run_apps --machine server
+    assert_status 1
+    assert_output_matches "Failed to install:.*snitch"
+    assert_output_matches "snitch.*Linux only"
+    refute_call_matches "^eget "
+}
+
+test_invalid_manifest_exits_before_anything() {
+    stub apt-get
+    printf '# name tier\nx core extra\n' >"$SANDBOX/bad.tsv"
+    APPS_FILE="$SANDBOX/bad.tsv" run_apps --machine container
+    assert_status 1
+    assert_output_matches "bad\.tsv:"
+    assert_no_calls
 }
 
 # stub_curl_eget_installer: curl stub that serves an eget.sh installer which
 # drops a logging eget stub into the current directory.
 stub_curl_eget_installer() {
+    stub_eget_logging
+    mv "$STUBS/eget" "$STUBS/.eget"
     cat >"$STUBS/curl" <<'EOF'
 #!/usr/bin/env bash
 echo "curl $*" >>"$STUB_LOG"
 out=""
 while (( $# )); do [[ $1 == -o ]] && out=$2; shift; done
 cat >"$out" <<'INSTALLER'
-printf '#!/usr/bin/env bash\necho "eget $*" >>"$STUB_LOG"\n' >eget
+cp "$STUBS/.eget" eget
 chmod +x eget
 INSTALLER
 EOF
     chmod +x "$STUBS/curl"
     local tool
-    for tool in mktemp chmod mv rm cat; do
+    for tool in mktemp chmod mv rm cat cp; do
         ln -s "$(command -v "$tool")" "$STUBS/$tool"
     done
 }
@@ -407,7 +483,7 @@ test_missing_eget_is_installed_on_demand() {
     run_apps --machine container
     assert_status 0
     assert_call_matches "^curl .*zyedidia.github.io/eget.sh"
-    assert_call "eget eza-community/eza --file eza --asset gnu.tar.gz --to $HOME/.local/bin"
+    assert_call_matches "^eget .*--file eza .*--to $HOME/.local/bin/eza .*eza-community/eza$"
     [[ -x $HOME/.local/bin/eget ]] || fail "eget not installed to ~/.local/bin"
 }
 
@@ -496,6 +572,7 @@ test_dry_run_prints_without_running() {
     assert_no_calls
     assert_output_matches "apt-get install -y --no-install-recommends nala$"
     assert_output_matches "nala install -y --no-install-recommends $CORE_APT"
+    assert_output_matches "^\+ fetch_release xfr lance0/xfr xfr musl\|gnu x86_64 $HOME/.local/bin/xfr$"
 }
 
 test_dry_run_no_nala_prints_apt_get() {
@@ -611,8 +688,8 @@ test_no_package_manager_fails() {
 # --build cargo: Rust tools rebuilt for this CPU
 # ---------------------------------------------------------------------------
 
-CORE_CRATES="bat eza lsd ripgrep fd-find git-delta zoxide atuin"
-EXTRA_CRATES="nu tailspin procs du-dust bottom starship xfr rustscan usbtree"
+CORE_CRATES="bat eza lsd ripgrep fd-find git-delta zoxide"
+EXTRA_CRATES="nu tailspin procs du-dust bottom starship xfr rustscan"
 
 # stub_cargo: cargo stub that logs each install with the build settings it
 # sees, and fails for crates in $STUB_FAIL_CRATES.
@@ -728,14 +805,13 @@ test_failed_crate_keeps_prebuilt_and_succeeds() {
     stub apt-get
     stub eget
     stub_cargo
-    ln -s "$(command -v mv)" "$STUBS/mv"
     mkdir -p "$HOME/.local/bin"
-    printf 'prebuilt\n' >"$HOME/.local/bin/atuin"
-    export STUB_FAIL_CRATES="atuin"
+    printf 'prebuilt\n' >"$HOME/.local/bin/lsd"
+    export STUB_FAIL_CRATES="lsd"
     run_apps --machine container --build cargo
     assert_status 0
-    assert_output_matches "cargo build failed.*atuin"
-    [[ -f $HOME/.local/bin/atuin ]] || fail "prebuilt atuin moved after a failed build"
+    assert_output_matches "cargo build failed.*lsd"
+    [[ -f $HOME/.local/bin/lsd ]] || fail "prebuilt lsd moved after a failed build"
     assert_call_matches "^cargo install --locked (--force )?zoxide$"
 }
 
@@ -743,7 +819,6 @@ test_eget_copy_moved_aside_after_build() {
     stub apt-get
     stub eget
     stub_cargo
-    ln -s "$(command -v mv)" "$STUBS/mv"
     mkdir -p "$HOME/.local/bin"
     printf 'eget copy\n' >"$HOME/.local/bin/rustscan"
     printf 'eget copy\n' >"$HOME/.local/bin/dust"
@@ -786,11 +861,24 @@ test_failed_crate_is_not_recorded() {
     stub apt-get
     stub eget
     stub_cargo
-    STUB_FAIL_CRATES="atuin" run_apps --machine container --build cargo
+    STUB_FAIL_CRATES="lsd" run_apps --machine container --build cargo
     : >"$STUB_LOG"
     run_apps --machine container --build cargo
-    assert_call "cargo install --locked --force atuin"
+    assert_call "cargo install --locked --force lsd"
     assert_call "cargo install --locked zoxide"
+}
+
+test_cargo_args_passed() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    cat >"$SANDBOX/apps.tsv" <<'INNER'
+# name tier bundle apt pacman dnf brew release file assets build
+x core - x x x x - - - crate:x:x:--no-default-features,--features,rustls
+INNER
+    APPS_FILE="$SANDBOX/apps.tsv" run_apps --machine container --build cargo
+    assert_status 0
+    assert_call_matches "^cargo install --locked (--force )?--no-default-features --features rustls x$"
 }
 
 # stub_curl_rustup_installer: curl stub serving a rustup-init that logs its
@@ -875,6 +963,23 @@ test_run_onchange_passes_build() {
     assert_output_matches "--machine server --build cargo\$"
     # The setting is in the rendered text, so changing it re-runs the script.
     assert_output_matches "^# appsBuild: cargo\$"
+}
+
+test_run_onchange_hashes_manifest() {
+    command -v chezmoi >/dev/null || return 0
+    local src="$SANDBOX/src" before after
+    mkdir -p "$src"
+    printf '[data]\n    machine = "server"\n    hasSecrets = false\n' >"$SANDBOX/chezmoi.toml"
+    cp -r "$REPO_DIR/.chezmoiroot" "$REPO_DIR/home" "$REPO_DIR/scripts" "$REPO_DIR/apps" "$src/"
+    before="$(PATH="$REAL_PATH" chezmoi --source="$src" --config="$SANDBOX/chezmoi.toml" --destination="$HOME" \
+        --persistent-state="$SANDBOX/state.db" execute-template <"$src/home/$RUN_ONCHANGE" 2>/dev/null)"
+    OUTPUT="$before"
+    assert_output_matches "^# apps\.tsv hash: [0-9a-f]{64}\$"
+    assert_output_matches "^# lib\.sh hash: [0-9a-f]{64}\$"
+    echo "# changed" >>"$src/apps/apps.tsv"
+    after="$(PATH="$REAL_PATH" chezmoi --source="$src" --config="$SANDBOX/chezmoi.toml" --destination="$HOME" \
+        --persistent-state="$SANDBOX/state.db" execute-template <"$src/home/$RUN_ONCHANGE" 2>/dev/null)"
+    [[ $before != "$after" ]] || fail "hash unchanged after editing the manifest"
 }
 
 test_init_keeps_and_defaults_apps_build() {
