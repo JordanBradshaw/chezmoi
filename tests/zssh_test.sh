@@ -336,6 +336,44 @@ test_zssh_exports_chezmoi_src() {
     assert_call_matches "^CHEZMOI_SRC=$SANDBOX/cz$"
 }
 
+test_zssh_unset_chezmoi_src_without_chezmoi_fails() {
+    stub_remote
+    mkdir -p "$SANDBOX/deploy/portable"
+    cp "$STUBS/build.sh" "$SANDBOX/deploy/portable/build.sh"
+    OUTPUT="$(env -u ZSSH_BUILDER -u CHEZMOI_SRC PATH="$STUBS:/usr/bin:/bin" ZSSH_DEPLOY="$SANDBOX/deploy" \
+        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+    STATUS=$?
+    assert_status 1
+    assert_eq "$OUTPUT" "zssh: set CHEZMOI_SRC to your chezmoi checkout"
+    refute_call_matches "^ssh "
+}
+
+test_zssh_failing_chezmoi_ignores_cwd_repo() {
+    stub_remote
+    mkdir -p "$SANDBOX/deploy/portable" "$SANDBOX/other"
+    cp "$STUBS/build.sh" "$SANDBOX/deploy/portable/build.sh"
+    git init -q "$SANDBOX/other"
+    printf '#!/bin/sh\necho boom >&2\nexit 1\n' >"$STUBS/chezmoi"
+    chmod +x "$STUBS/chezmoi"
+    OUTPUT="$(cd "$SANDBOX/other" && env -u ZSSH_BUILDER -u CHEZMOI_SRC PATH="$STUBS:/usr/bin:/bin" \
+        ZSSH_DEPLOY="$SANDBOX/deploy" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+    STATUS=$?
+    assert_status 1
+    assert_eq "$OUTPUT" "zssh: set CHEZMOI_SRC to your chezmoi checkout"
+    refute_call_matches "^ssh "
+}
+
+test_zssh_builder_override_tolerates_failing_chezmoi() {
+    stub_remote
+    printf '#!/bin/sh\necho boom >&2\nexit 1\n' >"$STUBS/chezmoi"
+    chmod +x "$STUBS/chezmoi"
+    OUTPUT="$(env -u CHEZMOI_SRC PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
+        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+    STATUS=$?
+    assert_status 0
+    ! grep -q boom <<<"$OUTPUT" || fail "chezmoi stderr leaked"
+}
+
 # ---------------------------------------------------------------------------
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
