@@ -104,7 +104,7 @@ test_bundle_rows_have_a_source() {
 
 test_known_build_sources() {
     real 'for n in "${APPS_NAMES[@]}"; do
-        [[ $(app "$n" build) =~ ^(crate:[a-z0-9_-]+(:[A-Za-z0-9_-]+)?(:.*)?|go:[^[:space:]]+|cross:[a-z0-9-]+|-)$ ]] ||
+        [[ $(app "$n" build) =~ ^(crate:[a-z0-9_-]+(:[A-Za-z0-9_-]+)?(:.*)?|go:[^[:space:]]+|cross:[a-z0-9-]+|pipx:[^[:space:]]+|-)$ ]] ||
             echo "$n: bad build $(app "$n" build)"
     done'
     assert_eq "$OUTPUT" ""
@@ -135,7 +135,52 @@ test_lock_names_in_manifest() {
 
 test_merged_rows() {
     real 'printf "%s|" "$(app rg apt)" "$(app tspin tier)" "$(app nu release)" "$(app atuin build)" "$(app lazydocker tier)" "$(app firacode bundle)"'
-    assert_eq "$OUTPUT" "ripgrep|extra|nushell/nushell|-|-|-|"
+    assert_eq "$OUTPUT" "ripgrep|extra|nushell/nushell|-|desktop|-|"
+}
+
+# pipx installs on hosts only; build-tools.sh has no pipx recipe.
+test_pipx_rows_not_bundled() {
+    real 'for n in $(apps_names --bundle); do
+        [[ $(app "$n" build) == pipx:* ]] && echo "$n: bundled pipx row"
+    done'
+    assert_eq "$OUTPUT" ""
+}
+
+# install-apps can install every row it selects: a package for some manager,
+# a release, a crate (--build cargo) or a pipx spec.
+test_tiered_rows_installable() {
+    real 'for n in "${APPS_NAMES[@]}"; do
+        [[ $(app "$n" tier) == - ]] && continue
+        [[ $(app "$n" apt)$(app "$n" pacman)$(app "$n" dnf)$(app "$n" brew) != ---- ]] && continue
+        [[ $(app "$n" release) != - || $(app "$n" build) == crate:* || $(app "$n" build) == pipx:* ]] ||
+            echo "$n: nothing installs it"
+    done'
+    assert_eq "$OUTPUT" ""
+}
+
+# pipx itself is a row, installed by the package batch before the pipx rows.
+test_pipx_rows_share_pipx_tier() {
+    real 'printf "pipx=%s %s\n" "$(app pipx tier)" "$(app pipx apt)"
+        for n in "${APPS_NAMES[@]}"; do
+            [[ $(app "$n" build) == pipx:* && $(app "$n" tier) != "$(app pipx tier)" ]] && echo "$n: tier differs from pipx"
+        done'
+    assert_eq "$OUTPUT" "pipx=desktop pipx"
+}
+
+# Former ~/.eget.toml entries and floating tools, now desktop rows.
+test_desktop_rows() {
+    real 'for n in lsoff bandwhich lazydocker lnav systemd-manager-tui tori lazygit lazyrsync nerdlog depot \
+            envx sake prettyping oryx act gitleaks cloudflared lsnet tldr xxh jtui tuistore; do
+            [[ $(app "$n" tier) == desktop ]] || echo "$n: tier $(app "$n" tier)"
+        done
+        printf "%s|" "$(app lazygit release)" "$(app tori file)" "$(app cloudflared assets)" \
+            "$(app lsnet build)" "$(app xxh build)" "$(app jtui build)" "$(app prettyping apt)" "$(app lsoff bundle)"'
+    assert_eq "$OUTPUT" "jesseduffield/lazygit|tori*|^fips|crate:lsnet|pipx:xxh-xxh|pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui|prettyping|y|"
+}
+
+test_desktop_rows_not_on_servers() {
+    real 'apps_names --tier extra | tr "\n" " "'
+    [[ " $OUTPUT " != *" lazygit "* && " $OUTPUT " != *" lsoff "* ]] || fail "desktop tools in extra: $OUTPUT"
 }
 
 test_apps_names_filters() {

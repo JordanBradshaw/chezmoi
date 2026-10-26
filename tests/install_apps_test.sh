@@ -36,6 +36,7 @@ setup() {
     unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN \
         STUB_FAIL_PKGS STUB_FAIL_CRATES STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
     stub sudo
+    stub pipx
     stub_uname
 }
 
@@ -234,6 +235,87 @@ test_desktop_installs_all_tiers() {
     assert_status 0
     assert_call_matches "^apt-get install .*\bgh\b"
     assert_call_matches "^apt-get install .*\bfonts-firacode\b"
+}
+
+# Former ~/.eget.toml entries are desktop release rows; pipx comes from the
+# package batch.
+test_desktop_installs_release_rows() {
+    stub apt-get
+    stub eget
+    run_apps --machine desktop --no-nala
+    assert_status 0
+    assert_call_matches "^apt-get install .*\bpipx\b.*\bprettyping\b|^apt-get install .*\bprettyping\b.*\bpipx\b"
+    assert_call_matches "^eget .*--file lazygit .*--to $HOME/.local/bin/lazygit .*jesseduffield/lazygit$"
+    assert_call_matches "^eget .*--file lsoff .*--to $HOME/.local/bin/lsoff .*yutat23/lsoff$"
+    assert_call_matches "^eget .*--asset=\^fips .*cloudflare/cloudflared$"
+}
+
+test_server_skips_desktop_tools() {
+    stub apt-get
+    stub eget
+    run_apps --machine server --no-nala
+    assert_status 0
+    refute_call_matches "jesseduffield/lazygit|yutat23/lsoff|^pipx "
+    refute_call_matches "^apt-get install .*\bpipx\b"
+}
+
+test_desktop_installs_pipx_rows() {
+    stub apt-get
+    stub eget
+    run_apps --machine desktop --no-nala
+    assert_status 0
+    assert_call "pipx install tldr"
+    assert_call "pipx install xxh-xxh"
+    assert_call "pipx install git+https://github.com/runpantheon/ltui#subdirectory=jtui"
+}
+
+test_pipx_row_skipped_when_installed() {
+    stub apt-get
+    stub eget
+    stub tldr
+    run_apps --machine desktop --no-nala
+    assert_status 0
+    refute_call_matches "^pipx install tldr$"
+    assert_call "pipx install xxh-xxh"
+}
+
+test_failed_pipx_install_is_reported() {
+    stub apt-get
+    stub eget
+    export STUB_FAIL_PKGS="xxh-xxh"
+    run_apps --machine desktop --no-nala
+    assert_status 1
+    assert_output_matches "Failed to install: .*\bxxh\b"
+}
+
+test_dry_run_prints_pipx() {
+    stub apt-get
+    stub eget
+    export DRY_RUN=1
+    run_apps --machine desktop --no-nala
+    assert_status 0
+    assert_no_calls
+    assert_output_matches "^\+ pipx install tldr$"
+}
+
+# lsnet has no Linux release: prebuilt hosts skip it instead of failing.
+test_crate_only_row_skipped_when_prebuilt() {
+    stub apt-get
+    stub eget
+    run_apps --machine desktop --no-nala
+    assert_status 0
+    assert_output_matches "lsnet: built only with --build cargo"
+    refute_call_matches "^cargo "
+}
+
+test_crate_only_row_built_with_cargo() {
+    stub apt-get
+    stub eget
+    stub_cargo
+    run_apps --machine desktop --no-nala --build cargo
+    assert_call_matches "^cargo install --locked (--force )?lsnet$"
+    grep -q "built only with --build cargo" <<<"$OUTPUT" && fail "skip notice under --build cargo"
+    return 0
 }
 
 test_stow_is_not_installed() {
