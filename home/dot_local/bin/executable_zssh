@@ -6,7 +6,7 @@
 # Usage: zssh [--rebuild] [--refresh] [ssh options] host
 #
 #   Builds (or reuses) a bundle for the host's CPU with
-#   scripts/portable/build.sh, uploads it over ssh only when it changed, and
+#   portable/build.sh, uploads it over ssh only when it changed, and
 #   starts the bundled zsh. Everything lives in ~/.zsh-portable on the host;
 #   delete that directory to remove it. No secrets are ever bundled.
 #
@@ -17,7 +17,7 @@
 #   ZSSH_REMOTE_DIR  bundle dir on the host (default: $HOME/.zsh-portable,
 #                    expanded by the remote shell)
 #   ZSSH_REPO        zsh-config checkout (default: chezmoi's source dir)
-#   ZSSH_BUILDER     build script (default: $ZSSH_REPO/scripts/portable/build.sh)
+#   ZSSH_BUILDER     build script (default: $ZSSH_REPO/portable/build.sh)
 
 set -euo pipefail
 
@@ -54,7 +54,7 @@ if [[ -z $builder ]]; then
         repo="$(git -C "$(chezmoi source-path)" rev-parse --show-toplevel)" \
             || { echo "zssh: set ZSSH_REPO to your zsh-config checkout" >&2; exit 1; }
     fi
-    builder="$repo/scripts/portable/build.sh"
+    builder="$repo/portable/build.sh"
 fi
 
 # Reuse one connection for the probe, the upload and the session.
