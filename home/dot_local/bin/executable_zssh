@@ -6,7 +6,7 @@
 # Usage: zssh [--rebuild] [--refresh] [ssh options] host
 #
 #   Builds (or reuses) a bundle for the host's CPU with
-#   portable/build.sh, uploads it over ssh only when it changed, and
+#   portable/build.sh from a chezmoi-deploy checkout, uploads it over ssh only when it changed, and
 #   starts the bundled zsh. Everything lives in ~/.zsh-portable on the host;
 #   delete that directory to remove it. No secrets are ever bundled.
 #
@@ -16,13 +16,15 @@
 # Environment:
 #   ZSSH_REMOTE_DIR  bundle dir on the host (default: $HOME/.zsh-portable,
 #                    expanded by the remote shell)
-#   ZSSH_REPO        zsh-config checkout (default: chezmoi's source dir)
-#   ZSSH_BUILDER     build script (default: $ZSSH_REPO/portable/build.sh)
+#   ZSSH_DEPLOY      chezmoi-deploy checkout (default:
+#                    ${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy)
+#   ZSSH_BUILDER     build script (default: $ZSSH_DEPLOY/portable/build.sh)
+#   CHEZMOI_SRC      chezmoi checkout (default: git root of chezmoi source-path)
 
 set -euo pipefail
 
 usage() {
-    sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 build_flags=()
@@ -49,13 +51,29 @@ fi
 
 builder=${ZSSH_BUILDER:-}
 if [[ -z $builder ]]; then
-    repo=${ZSSH_REPO:-}
-    if [[ -z $repo ]]; then
-        repo="$(git -C "$(chezmoi source-path)" rev-parse --show-toplevel)" \
-            || { echo "zssh: set ZSSH_REPO to your zsh-config checkout" >&2; exit 1; }
+    for dir in "${ZSSH_DEPLOY:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy"; do
+        if [[ -n $dir && -x $dir/portable/build.sh ]]; then
+            builder="$dir/portable/build.sh"
+            break
+        fi
+    done
+    if [[ -z $builder ]]; then
+        echo "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop" >&2
+        exit 1
     fi
-    builder="$repo/portable/build.sh"
 fi
+
+if [[ -z ${CHEZMOI_SRC:-} ]]; then
+    if CHEZMOI_SRC="$(git -C "$(chezmoi source-path)" rev-parse --show-toplevel 2>/dev/null)"; then
+        :
+    elif [[ -z ${ZSSH_BUILDER:-} ]]; then
+        echo "zssh: set CHEZMOI_SRC to your chezmoi checkout" >&2
+        exit 1
+    else
+        unset CHEZMOI_SRC
+    fi
+fi
+[[ -z ${CHEZMOI_SRC:-} ]] || export CHEZMOI_SRC
 
 # Reuse one connection for the probe, the upload and the session.
 ssh_opts=(
