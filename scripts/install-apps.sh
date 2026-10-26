@@ -19,14 +19,20 @@
 #   downloads). --no-nala keeps apt-get; containers use apt-get unless
 #   APPS_FORCE_NALA=1. A nala failure falls back to apt-get.
 #
+#   The tools come from apps/apps.tsv, the app manifest shared with the portable
+#   build (apps/lib.sh reads it; the file documents the columns). Each row in a
+#   selected tier is installed from its package-manager package; a tool with no
+#   package, or whose package fails, is downloaded from its GitHub release with
+#   eget (release, file and assets columns; Linux only).
+#
 #   eget authenticates with EGET_GITHUB_TOKEN from the environment, then
 #   ~/.config/secrets/env, then `gh auth token`.
 #
 #   --build (or APPS_BUILD) picks where the Rust tools come from:
 #     prebuilt  packages, then eget releases (the default)
 #     cargo     the same first, so every tool works even if a build fails;
-#               then each Rust tool is rebuilt with `cargo install --locked`
-#               for this CPU (target-cpu=native, fat LTO, one codegen unit)
+#               then each `crate:` build in the manifest is rebuilt with
+#               `cargo install --locked` for this CPU (target-cpu=native, fat LTO, one codegen unit)
 #               into ~/.cargo/bin, which comes before the system dirs in PATH.
 #               rustup is installed if needed (--no-modify-path: zshenv.d
 #               adds ~/.cargo/bin). Copies in ~/.local/bin, which would shadow
@@ -39,48 +45,8 @@
 
 set -euo pipefail
 
-# Columns: tier name apt pacman dnf brew eget cargo
-#   "-"   not packaged for that manager.
-#   eget  "owner/repo:binary[:asset[,asset...]]", used when the package is
-#         unavailable or fails. Each asset filter narrows the release files;
-#         a leading ^ excludes matches.
-#   cargo "crate[:binary]" for --build cargo; the binary defaults to the
-#         crate name.
-APPS=(
-    "core    curl     curl           curl          curl            curl           -                                              -"
-    "core    git      git            git           git             git            -                                              -"
-    "core    unzip    unzip          unzip         unzip           unzip          -                                              -"
-    "core    fzf      fzf            fzf           fzf             fzf            -                                              -"
-    "core    bat      bat            bat           bat             bat            -                                              bat"
-    "core    eza      eza            eza           eza             eza            eza-community/eza:eza:gnu.tar.gz               eza"
-    "core    lsd      lsd            lsd           lsd             lsd            -                                              lsd"
-    "core    ripgrep  ripgrep        ripgrep       ripgrep         ripgrep        -                                              ripgrep:rg"
-    "core    fd       fd-find        fd            fd-find         fd             -                                              fd-find:fd"
-    "core    delta    git-delta      git-delta     git-delta       git-delta      -                                              git-delta:delta"
-    "core    zoxide   zoxide         zoxide        zoxide          zoxide         ajeetdsouza/zoxide:zoxide:musl                 zoxide"
-    "core    atuin    atuin          atuin         atuin           atuin          atuinsh/atuin:atuin:gnu.tar.gz,^server         atuin"
-    "core    direnv   direnv         direnv        direnv          direnv         direnv/direnv:direnv                           -"
-    "extra   miller   miller         miller        miller          miller         -                                              -"
-    "extra   nushell  -              nushell       -               nushell        nushell/nushell:nu:musl                        nu"
-    "extra   gh       gh             github-cli    gh              gh             -                                              -"
-    "extra   tailspin tailspin       tailspin      tailspin        tailspin       -                                              tailspin:tspin"
-    "extra   procs    procs          procs         procs           procs          dalance/procs:procs:x86_64-linux               procs"
-    "extra   duf      duf            duf           duf             duf            -                                              -"
-    "extra   dust     du-dust        dust          du-dust         dust           bootandy/dust:dust:musl                        du-dust:dust"
-    "extra   btm      btm            bottom        bottom          bottom         -                                              bottom:btm"
-    "extra   htop     htop           htop          htop            htop           -                                              -"
-    "extra   tmux     tmux           tmux          tmux            tmux           -                                              -"
-    "extra   starship starship       starship      starship        starship       starship/starship:starship:musl.tar.gz,^sha256 starship"
-    "extra   micro    micro          micro         micro           micro          -                                              -"
-    "extra   neovim   neovim         neovim        neovim          neovim         -                                              -"
-    "extra   most     most           most          most            most           -                                              -"
-    "extra   xfr      -              -             -               -              lance0/xfr:xfr:musl                            xfr"
-    "extra   snitch   -              -             -               -              karol-broda/snitch:snitch:tar.gz               -"
-    "extra   usbtree  -              -             -               -              gnomeria/usbtree:usbtree:tar.gz                usbtree"
-    "extra   rustscan -              rustscan      -               rustscan       bee-san/RustScan:rustscan:x86-linux            rustscan"
-    "desktop firacode fonts-firacode ttf-fira-code fira-code-fonts font-fira-code -                                              -"
-#    "extra    -         -               -              -               -               sanford/lsnet"
-)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../apps/lib.sh"
+apps_load || exit 1
 
 # Compilers and pkg-config for --build cargo, per package manager.
 declare -A BUILD_DEPS=(
@@ -124,30 +90,6 @@ detect_pkg_manager() {
     return 1
 }
 
-# load_github_token: set EGET_GITHUB_TOKEN from the secrets file or gh when it
-# is not already in the environment. Missing tokens are fine; eget just gets
-# lower GitHub rate limits.
-load_github_token() {
-    [[ -n ${EGET_GITHUB_TOKEN:-} ]] && return 0
-
-    local secrets="${XDG_CONFIG_HOME:-$HOME/.config}/secrets/env" line
-    if [[ -r $secrets ]]; then
-        while IFS= read -r line; do
-            if [[ $line == EGET_GITHUB_TOKEN=* ]]; then
-                EGET_GITHUB_TOKEN="${line#EGET_GITHUB_TOKEN=}"
-            fi
-        done <"$secrets"
-    fi
-
-    if [[ -z ${EGET_GITHUB_TOKEN:-} ]] && command -v gh >/dev/null 2>&1; then
-        EGET_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
-    fi
-
-    if [[ -n ${EGET_GITHUB_TOKEN:-} ]]; then
-        export EGET_GITHUB_TOKEN
-    fi
-}
-
 # ensure_eget: put eget on PATH, downloading it to ~/.local/bin when missing.
 ensure_eget() {
     command -v eget >/dev/null 2>&1 && return 0
@@ -177,27 +119,27 @@ ensure_eget() {
     return 1
 }
 
-# install_eget "owner/repo:binary[:asset[,asset...]]"
-install_eget() {
-    local repo bin assets filter
-    IFS=: read -r repo bin assets <<<"$1"
-
-    if command -v "$bin" >/dev/null 2>&1; then
-        echo "$bin is already installed, skipping eget."
+# install_release NAME: download NAME's release binary to ~/.local/bin, from
+# the manifest's release, file and assets columns.
+install_release() {
+    local name=$1 arch
+    if command -v "$name" >/dev/null 2>&1; then
+        echo "$name is already installed, skipping eget."
         return 0
     fi
-    ensure_eget || return 1
-    load_github_token
-
-    mkdir -p "$HOME/.local/bin"
-    local -a asset_args=() filters=()
-    if [[ -n $assets ]]; then
-        IFS=, read -r -a filters <<<"$assets"
-        for filter in "${filters[@]}"; do
-            asset_args+=(--asset "$filter")
-        done
+    if [[ $(uname -s) != Linux ]]; then
+        echo "Error: $name needs a release download, which works on Linux only." >&2
+        return 1
     fi
-    run eget "$repo" --file "$bin" "${asset_args[@]}" --to "$HOME/.local/bin"
+    ensure_eget || return 1
+    arch="$(normalize_arch "$(uname -m)")" || return 1
+
+    run mkdir -p "$HOME/.local/bin"
+    if ! run fetch_release "$name" "$(app "$name" release)" "$(app "$name" file)" \
+        "$(app "$name" assets)" "$arch" "$HOME/.local/bin/$name"; then
+        echo "Error: no usable $arch release asset for $name." >&2
+        return 1
+    fi
 }
 
 # ensure_rustup: put cargo on PATH, from ~/.cargo/bin, a rustup without a
@@ -246,7 +188,7 @@ retire_local_copy() {
     run mv -f "$copy" "$keep/$1"
 }
 
-# install_cargo "crate[:binary]": build the crate for this CPU into
+# install_cargo "CRATE[:BIN[:ARGS]]": build the crate for this CPU into
 # ~/.cargo/bin. A shared target dir keeps dependencies between crates and
 # runs. Any RUSTFLAGS already set are kept.
 #
@@ -255,11 +197,14 @@ retire_local_copy() {
 # else (a plain `cargo install`, other RUSTFLAGS) is rebuilt once with --force.
 BUILT_RECORD="$HOME/.local/share/install-apps/cargo-built"
 install_cargo() {
-    local crate bin rustflags settings line force=--force
-    IFS=: read -r crate bin <<<"$1"
+    local crate bin cargs rustflags settings line force=--force
+    local -a args=()
+    IFS=: read -r crate bin cargs <<<"$1"
     bin=${bin:-$crate}
+    [[ -n $cargs ]] && IFS=, read -r -a args <<<"$cargs"
     rustflags="${RUSTFLAGS:+$RUSTFLAGS }-C target-cpu=native"
     settings="$crate RUSTFLAGS=$rustflags LTO=fat CGU=1"
+    [[ -n $cargs ]] && settings+=" ARGS=$cargs"
     if [[ -r $BUILT_RECORD ]]; then
         while IFS= read -r line; do
             [[ $line == "$settings" ]] && force="" && break
@@ -270,7 +215,7 @@ install_cargo() {
     run env RUSTFLAGS="$rustflags" \
         CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
         CARGO_TARGET_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/install-apps/cargo-target" \
-        cargo install --locked $force "$crate" || return 1
+        cargo install --locked $force "${args[@]}" "$crate" || return 1
     if [[ -n $force && -z ${DRY_RUN:-} ]]; then
         mkdir -p "${BUILT_RECORD%/*}"
         echo "$settings" >>"$BUILT_RECORD"
@@ -354,36 +299,34 @@ main() {
         fi
     fi
 
-    local col
     local -a install
     case "$pm" in
         apt)
-            col=2
-            install=(apt-get install -y --no-install-recommends)
+                        install=(apt-get install -y --no-install-recommends)
             export DEBIAN_FRONTEND=noninteractive
             ;;
-        pacman) col=3; install=(pacman -S --needed --noconfirm) ;;
-        dnf)    col=4; install=(dnf install -y) ;;
-        brew)   col=5; install=(brew install) ;;
+        pacman) install=(pacman -S --needed --noconfirm) ;;
+        dnf)    install=(dnf install -y) ;;
+        brew)   install=(brew install) ;;
     esac
     echo "Package manager: $pm"
 
-    local row pkg spec
-    local -a fields pkgs=() egets=() failed=() crates=() cargo_failed=()
+    local name pkg release spec
+    local -a fields pkgs=() releases=() failed=() crates=() cargo_failed=()
     local -A fallback=()
-    for row in "${APPS[@]}"; do
-        read -r -a fields <<<"$row"
-        [[ -n ${tiers[${fields[0]}]:-} ]] || continue
-        pkg="${fields[col]}"
-        spec="${fields[6]}"
-        [[ ${fields[7]} != - ]] && crates+=("${fields[7]}")
+    for name in "${APPS_NAMES[@]}"; do
+        [[ -n ${tiers[$(app "$name" tier)]:-} ]] || continue
+        pkg="$(app "$name" "$pm")"
+        release="$(app "$name" release)"
+        spec="$(app "$name" build)"
+        [[ $spec == crate:* ]] && crates+=("${spec#crate:}")
         if [[ $pkg != - ]]; then
             pkgs+=("$pkg")
-            [[ $spec != - ]] && fallback[$pkg]="$spec"
-        elif [[ $spec != - ]]; then
-            egets+=("$spec")
+            [[ $release != - ]] && fallback[$pkg]="$name"
+        elif [[ $release != - ]]; then
+            releases+=("$name")
         else
-            failed+=("${fields[1]}")
+            failed+=("$name")
         fi
     done
     if [[ $build == cargo && -n ${BUILD_DEPS[$pm]} ]]; then
@@ -411,15 +354,15 @@ main() {
             if run "${sudo[@]}" "${install[@]}" "$pkg"; then
                 continue
             elif [[ -n ${fallback[$pkg]:-} ]]; then
-                egets+=("${fallback[$pkg]}")
+                releases+=("${fallback[$pkg]}")
             else
                 failed+=("$pkg")
             fi
         done
     fi
 
-    for spec in "${egets[@]}"; do
-        install_eget "$spec" || failed+=("${spec%%:*}")
+    for name in "${releases[@]}"; do
+        install_release "$name" || failed+=("$name")
     done
 
     if [[ $build == cargo ]] && (( ${#crates[@]} )); then
