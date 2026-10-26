@@ -28,6 +28,10 @@
 #            comchan: fontconfig), not building against musl (cyme),
 #            crashing rustc under fat LTO (zellij) or having go.mod replace
 #            directives go install refuses (ctop) use the release.
+#            pipx:SPEC (install-apps only, never bundled) runs
+#            `pipx install SPEC`; the pipx row is installed with the packages.
+#            A crate: build with no package or release (lsnet) is installed
+#            only with --build cargo.
 #
 # Static musl builds come first so binaries run on older glibc (JetPack 4 is
 # Ubuntu 18.04). A tool with no build for an arch is skipped with a warning.
@@ -64,24 +68,43 @@
   usbtree        extra    y       -               -              -                -               gnomeria/usbtree                usbtree        tar.gz                                -
   rustscan       extra    -       -               rustscan       -                rustscan        bee-san/RustScan                rustscan       x86-linux                             crate:rustscan
   firacode       desktop  -       fonts-firacode  ttf-fira-code  fira-code-fonts  font-fira-code  -                               -              -                                     -
-  lazydocker     -        y       -               -              -                -               jesseduffield/lazydocker        lazydocker     tar.gz|x86_64,tar.gz                  go:github.com/jesseduffield/lazydocker
-  lazyjournal    -        y       -               -              -                -               Lifailon/lazyjournal            lazyjournal    -                                     go:github.com/Lifailon/lazyjournal
-  bandwhich      -        y       -               -              -                -               imsnif/bandwhich                bandwhich      musl|gnu                              crate:bandwhich
-  diskwatch      -        y       -               -              -                -               matthart1983/diskwatch          diskwatch*     static|-                              crate:diskwatch
-  lsoff          -        y       -               -              -                -               yutat23/lsoff                   lsoff          -                                     go:github.com/yutat23/lsoff
-  systeroid      -        y       -               -              -                -               orhun/systeroid                 systeroid      musl,^all-features|gnu,^all-features  crate:systeroid
-  systeroid-tui  -        y       -               -              -                -               orhun/systeroid                 systeroid-tui  musl,^all-features|gnu,^all-features  crate:systeroid-tui
-  systemctl-tui  -        y       -               -              -                -               rgwood/systemctl-tui            systemctl-tui  musl|gnu                              crate:systemctl-tui
-  rustnet        -        y       -               -              -                -               domcyrus/rustnet                rustnet        musl|gnu                              -
-  trip           -        y       -               -              -                -               fujiapple852/trippy             trip           musl|gnu                              crate:trippy:trip
-  gping          -        y       -               -              -                -               orf/gping                       gping          musl|gnu|-                            crate:gping
-  tracexec       -        y       -               -              -                -               kxxt/tracexec                   tracexec       static|-                              -
-  cyme           -        y       -               -              -                -               tuna-f1sh/cyme                  cyme           musl|gnu                              -
-  viddy          -        y       -               -              -                -               sachaos/viddy                   viddy          tar.gz                                crate:viddy
-  lnav           -        y       -               -              -                -               tstack/lnav                     lnav           musl                                  -
+  pipx           desktop  -       pipx            python-pipx    pipx             pipx            -                               -              -                                     -
+  prettyping     desktop  -       prettyping      prettyping     -                prettyping      -                               -              -                                     -
+  systemd-manager-tui  desktop  - -               -              -                -               matheus-git/systemd-manager-tui systemd-manager-tui*  -                              -
+  tori           desktop  -       -               -              -                -               thobiasn/tori-cli               tori*          -                                     -
+  lazygit        desktop  -       -               -              -                -               jesseduffield/lazygit           lazygit        tar.gz                                -
+  lazyrsync      desktop  -       -               -              -                -               westpoint-io/lazyrsync          lazyrsync      musl|gnu                              -
+  nerdlog        desktop  -       -               -              -                -               dimonomid/nerdlog               nerdlog        tar.gz                                -
+  depot          desktop  -       -               -              -                -               depot/cli                       bin/depot      tar.gz                                -
+  envx           desktop  -       -               -              -                -               mikeleppane/envx                envx*          static|-                              -
+  sake           desktop  -       -               -              -                -               alajmo/sake                     sake           tar.gz                                -
+  oryx           desktop  -       -               -              -                -               pythops/oryx                    oryx*          musl                                  -
+  act            desktop  -       -               -              -                -               nektos/act                      act            tar.gz                                -
+  gitleaks       desktop  -       -               -              -                -               gitleaks/gitleaks               gitleaks       tar.gz                                -
+  cloudflared    desktop  -       -               -              -                -               cloudflare/cloudflared          cloudflared*   ^fips                                 -
+  lsnet          desktop  -       -               -              -                -               -                               -              -                                     crate:lsnet
+  tldr           desktop  -       -               -              -                -               -                               -              -                                     pipx:tldr
+  xxh            desktop  -       -               -              -                -               -                               -              -                                     pipx:xxh-xxh
+  jtui           desktop  -       -               -              -                -               -                               -              -                                     pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui
+  tuistore       desktop  -       -               -              -                -               -                               -              -                                     pipx:git+https://github.com/Gheat1/tuistore
+  lazydocker     desktop  y       -               -              -                -               jesseduffield/lazydocker        lazydocker     tar.gz|x86_64,tar.gz                  go:github.com/jesseduffield/lazydocker
+  lazyjournal    desktop  y       -               -              -                -               Lifailon/lazyjournal            lazyjournal    -                                     go:github.com/Lifailon/lazyjournal
+  bandwhich      desktop  y       -               -              -                -               imsnif/bandwhich                bandwhich      musl|gnu                              crate:bandwhich
+  diskwatch      desktop  y       -               -              -                -               matthart1983/diskwatch          diskwatch*     static|-                              crate:diskwatch
+  lsoff          desktop  y       -               -              -                -               yutat23/lsoff                   lsoff          -                                     go:github.com/yutat23/lsoff
+  systeroid      desktop  y       -               -              -                -               orhun/systeroid                 systeroid      musl,^all-features|gnu,^all-features  crate:systeroid
+  systeroid-tui  desktop  y       -               -              -                -               orhun/systeroid                 systeroid-tui  musl,^all-features|gnu,^all-features  crate:systeroid-tui
+  systemctl-tui  desktop  y       -               -              -                -               rgwood/systemctl-tui            systemctl-tui  musl|gnu                              crate:systemctl-tui
+  rustnet        desktop  y       -               -              -                -               domcyrus/rustnet                rustnet        musl|gnu                              -
+  trip           desktop  y       -               -              -                -               fujiapple852/trippy             trip           musl|gnu                              crate:trippy:trip
+  gping          desktop  y       -               -              -                -               orf/gping                       gping          musl|gnu|-                            crate:gping
+  tracexec       desktop  y       -               -              -                -               kxxt/tracexec                   tracexec       static|-                              -
+  cyme           desktop  y       -               -              -                -               tuna-f1sh/cyme                  cyme           musl|gnu                              -
+  viddy          desktop  y       -               -              -                -               sachaos/viddy                   viddy          tar.gz                                crate:viddy
+  lnav           desktop  y       -               -              -                -               tstack/lnav                     lnav           musl                                  -
   zellij         -        y       -               -              -                -               zellij-org/zellij               zellij         musl,^no-web|musl                     -
-  ctop           -        y       -               -              -                -               bcicen/ctop                     ctop*          -                                     -
-  dive           -        y       -               -              -                -               wagoodman/dive                  dive           tar.gz                                go:github.com/wagoodman/dive
+  ctop           desktop  y       -               -              -                -               bcicen/ctop                     ctop*          -                                     -
+  dive           desktop  y       -               -              -                -               wagoodman/dive                  dive           tar.gz                                go:github.com/wagoodman/dive
   comchan        -        y       -               -              -                -               Vaishnav-Sabari-Girish/ComChan  comchan        musl|gnu                              -
   binsider       -        y       -               -              -                -               orhun/binsider                  binsider       musl|gnu                              crate:binsider
   pueue          -        y       -               -              -                -               Nukesor/pueue                   pueue*         pueue-                                crate:pueue

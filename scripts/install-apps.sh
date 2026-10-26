@@ -23,7 +23,8 @@
 #   build (apps/lib.sh reads it; the file documents the columns). Each row in a
 #   selected tier is installed from its package-manager package; a tool with no
 #   package, or whose package fails, is downloaded from its GitHub release with
-#   eget (release, file and assets columns; Linux only).
+#   eget (release, file and assets columns; Linux only). A pipx:SPEC build with
+#   no package or release is installed with `pipx install SPEC`.
 #
 #   eget authenticates with EGET_GITHUB_TOKEN from the environment, then
 #   ~/.config/secrets/env, then `gh auth token`.
@@ -140,6 +141,22 @@ install_release() {
         echo "Error: no usable $arch release asset for $name." >&2
         return 1
     fi
+}
+
+# install_pipx NAME: `pipx install` the spec in NAME's pipx: build.
+install_pipx() {
+    local name=$1 spec
+    spec="$(app "$name" build)"
+    spec=${spec#pipx:}
+    if command -v "$name" >/dev/null 2>&1; then
+        echo "$name is already installed, skipping pipx."
+        return 0
+    fi
+    if [[ -z ${DRY_RUN:-} ]] && ! command -v pipx >/dev/null 2>&1; then
+        echo "Error: $name needs pipx, which is not installed." >&2
+        return 1
+    fi
+    run pipx install "$spec"
 }
 
 # ensure_rustup: put cargo on PATH, from ~/.cargo/bin, a rustup without a
@@ -302,7 +319,7 @@ main() {
     local -a install
     case "$pm" in
         apt)
-                        install=(apt-get install -y --no-install-recommends)
+            install=(apt-get install -y --no-install-recommends)
             export DEBIAN_FRONTEND=noninteractive
             ;;
         pacman) install=(pacman -S --needed --noconfirm) ;;
@@ -312,7 +329,7 @@ main() {
     echo "Package manager: $pm"
 
     local name pkg release spec
-    local -a fields pkgs=() releases=() failed=() crates=() cargo_failed=()
+    local -a fields pkgs=() releases=() pipxs=() failed=() crates=() cargo_failed=()
     local -A fallback=()
     for name in "${APPS_NAMES[@]}"; do
         [[ -n ${tiers[$(app "$name" tier)]:-} ]] || continue
@@ -325,6 +342,13 @@ main() {
             [[ $release != - ]] && fallback[$pkg]="$name"
         elif [[ $release != - ]]; then
             releases+=("$name")
+        elif [[ $spec == pipx:* ]]; then
+            pipxs+=("$name")
+        elif [[ $spec == crate:* ]]; then
+            # Only a cargo build makes it; --build cargo does that below.
+            if [[ $build == prebuilt ]] && ! command -v "$name" >/dev/null 2>&1; then
+                echo "$name: built only with --build cargo (no package or release); skipping."
+            fi
         else
             failed+=("$name")
         fi
@@ -363,6 +387,10 @@ main() {
 
     for name in "${releases[@]}"; do
         install_release "$name" || failed+=("$name")
+    done
+
+    for name in "${pipxs[@]}"; do
+        install_pipx "$name" || failed+=("$name")
     done
 
     if [[ $build == cargo ]] && (( ${#crates[@]} )); then
