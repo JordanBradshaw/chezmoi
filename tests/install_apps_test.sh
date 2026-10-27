@@ -34,7 +34,7 @@ setup() {
     done
 
     unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN \
-        STUB_FAIL_PKGS STUB_FAIL_CRATES STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
+        STUB_FAIL_PKGS STUB_FAIL_CRATES APPS_NALA STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
     stub sudo
     stub pipx
     stub_uname
@@ -652,42 +652,82 @@ test_dry_run_prints_without_running() {
     run_apps --machine desktop
     assert_status 0
     assert_no_calls
-    assert_output_matches "apt-get install -y --no-install-recommends nala$"
-    assert_output_matches "nala install -y --no-install-recommends $CORE_APT"
-    assert_output_matches "^\+ fetch_release xfr lance0/xfr xfr musl\|gnu x86_64 $HOME/.local/bin/xfr$"
+    assert_output_matches "apt-get install -y --no-install-recommends $CORE_APT"
+    grep -q nala <<<"$OUTPUT" && fail "dry run mentions nala"
+    assert_output_matches "^\\+ fetch_release xfr lance0/xfr xfr musl\\|gnu x86_64 $HOME/.local/bin/xfr$"
 }
 
-test_dry_run_no_nala_prints_apt_get() {
+test_dry_run_nala_prints_nala() {
     stub apt-get
+    stub eget
     export DRY_RUN=1
-    run_apps --machine container --no-nala
+    run_apps --machine server --nala
     assert_status 0
     assert_no_calls
-    assert_output_matches "apt-get install -y --no-install-recommends $CORE_APT$"
+    assert_output_matches "apt-get install -y --no-install-recommends nala$"
+    assert_output_matches "nala install -y --no-install-recommends $CORE_APT"
 }
 
 # ---------------------------------------------------------------------------
-# nala (apt only): installed first by default, then used for the batch
+# nala (apt only): never the default; --nala or APPS_NALA=1 opts in
 # ---------------------------------------------------------------------------
 
-test_apt_installs_nala_first_and_uses_it() {
-    stub_apt_get_with_nala
+test_apt_default_is_apt_get_without_nala() {
+    stub apt-get
     stub eget
-    run_apps --machine server
+    run_apps --machine desktop
     assert_status 0
-    assert_call "apt-get update"
-    assert_call "apt-get install -y --no-install-recommends nala"
-    assert_call_matches "^nala install -y --no-install-recommends $CORE_APT "
-    refute_call_matches "^apt-get install .*\bcurl\b"
+    refute_call_matches "\\bnala\\b"
+    assert_call_matches "^apt-get install -y --no-install-recommends $CORE_APT "
 }
 
-test_apt_uses_existing_nala() {
+test_existing_nala_not_used_by_default() {
     stub apt-get
     stub nala
     stub eget
     run_apps --machine server
     assert_status 0
-    refute_call_matches "^apt-get install .*\bnala\b"
+    refute_call_matches "^nala "
+    assert_call_matches "^apt-get install -y --no-install-recommends $CORE_APT "
+}
+
+test_nala_flag_installs_nala_first_and_uses_it() {
+    stub_apt_get_with_nala
+    stub eget
+    run_apps --machine server --nala
+    assert_status 0
+    assert_call "apt-get update"
+    assert_call "apt-get install -y --no-install-recommends nala"
+    assert_call_matches "^nala install -y --no-install-recommends $CORE_APT "
+    refute_call_matches "^apt-get install .*\\bcurl\\b"
+}
+
+test_apps_nala_env_opts_in() {
+    stub apt-get
+    stub nala
+    stub eget
+    export APPS_NALA=1
+    run_apps --machine server
+    assert_status 0
+    assert_call_matches "^nala install -y --no-install-recommends $CORE_APT "
+}
+
+test_apps_force_nala_still_opts_in() {
+    stub apt-get
+    stub nala
+    export APPS_FORCE_NALA=1
+    run_apps --machine container
+    assert_status 0
+    assert_call "nala install -y --no-install-recommends $CORE_APT"
+}
+
+test_nala_flag_uses_existing_nala() {
+    stub apt-get
+    stub nala
+    stub eget
+    run_apps --machine server --nala
+    assert_status 0
+    refute_call_matches "^apt-get install .*\\bnala\\b"
     assert_call_matches "^nala install -y --no-install-recommends $CORE_APT "
 }
 
@@ -695,7 +735,7 @@ test_nala_batch_failure_falls_back_to_apt_get() {
     stub apt-get
     stub_nala_failing install
     stub eget
-    run_apps --machine desktop
+    run_apps --machine desktop --nala
     assert_status 0
     assert_call "apt-get install -y --no-install-recommends curl"
     assert_call "apt-get install -y --no-install-recommends fonts-firacode"
@@ -705,40 +745,40 @@ test_nala_unavailable_uses_apt_get() {
     stub apt-get
     stub eget
     export STUB_FAIL_PKGS="nala"
-    run_apps --machine server
+    run_apps --machine server --nala
     assert_status 0
     refute_call_matches "^nala "
     assert_call_matches "^apt-get install -y --no-install-recommends $CORE_APT "
     assert_output_matches "nala"
 }
 
-test_no_nala_flag_skips_nala() {
+test_no_nala_flag_still_accepted() {
     stub apt-get
     stub nala
     stub eget
     run_apps --machine server --no-nala
     assert_status 0
     refute_call_matches "^nala "
-    refute_call_matches "^apt-get install .*\bnala\b"
     assert_call_matches "^apt-get install -y --no-install-recommends $CORE_APT "
 }
 
-test_container_skips_nala() {
+test_no_nala_overrides_apps_nala() {
+    stub apt-get
+    stub nala
+    stub eget
+    export APPS_NALA=1
+    run_apps --machine server --no-nala
+    assert_status 0
+    refute_call_matches "^nala "
+}
+
+test_container_uses_apt_get() {
     stub apt-get
     stub nala
     run_apps --machine container
     assert_status 0
     refute_call_matches "^nala "
     assert_call "apt-get install -y --no-install-recommends $CORE_APT"
-}
-
-test_container_force_nala() {
-    stub apt-get
-    stub nala
-    export APPS_FORCE_NALA=1
-    run_apps --machine container
-    assert_status 0
-    assert_call "nala install -y --no-install-recommends $CORE_APT"
 }
 
 test_nala_not_used_for_other_managers() {
