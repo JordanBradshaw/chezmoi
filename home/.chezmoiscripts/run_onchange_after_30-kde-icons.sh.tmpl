@@ -1,5 +1,9 @@
 {{ if eq .machine "desktop" -}}
 #!/usr/bin/env bash
-# .chezmoiexternal.toml.tmpl hash: {{ include ".chezmoiexternal.toml.tmpl" | sha256sum }}
-kbuildsycoca6 --noincremental
+# Icon themes (candy-icons, Sweet folders); see scripts/install-icons.sh.
+# Re-run when the script changes, and weekly to pick up upstream updates.
+# install-icons.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/install-icons.sh") | sha256sum }}
+# backup.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/lib/backup.sh") | sha256sum }}
+# week: {{ div (now | unixEpoch) 604800 }}
+exec {{ joinPath .chezmoi.workingTree "scripts/install-icons.sh" | quote }}
 {{ end -}}

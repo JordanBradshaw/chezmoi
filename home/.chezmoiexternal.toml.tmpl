@@ -53,21 +53,4 @@
         args = ["--depth", "1"]
     [".local/share/chezmoi-deploy".pull]
         args = ["--ff-only"]
-
-[".local/share/icons/candy-icons"]
-    type = "git-repo"
-    url = "https://github.com/EliverLara/candy-icons.git"
-    refreshPeriod = "168h"
-    [".local/share/icons/candy-icons".clone]
-        args = ["--depth", "1"]
-    [".local/share/icons/candy-icons".pull]
-        args = ["--ff-only"]
-
-[".local/share/icons"]
-    type = "archive"
-    url = "https://github.com/EliverLara/Sweet-folders/archive/refs/heads/master.tar.gz"
-    exact = false
-    stripComponents = 1
-    include = ["*/Sweet-*", "*/Sweet-*/**"]
-    refreshPeriod = "168h"
 {{- end }}
