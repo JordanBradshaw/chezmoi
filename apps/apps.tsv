@@ -4,7 +4,7 @@
 #
 # Columns:
 #   name     binary name, installed as "name".
-#   tier     install-apps tier: core, extra, desktop; "-" = bundle only.
+#   tier     install-apps tier: core, extra, desktop; "-" = portable bundles only.
 #   portable which portable zsh bundles ship it: zssh (ssh), dev (devcontainer),
 #            "zssh,dev" (both) or "-". A dev row needs a release download.
 #   apt pacman dnf brew
