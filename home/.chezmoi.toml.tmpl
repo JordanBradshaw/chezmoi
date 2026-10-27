@@ -52,3 +52,7 @@ encryption = "age"
 
 [diff]
     pager = "delta"
+
+# Back up files apply is about to overwrite: ~/.local/state/chezmoi-backups.
+[hooks.apply.pre]
+    command = {{ joinPath .chezmoi.workingTree "scripts/backup-before-apply.sh" | quote }}
