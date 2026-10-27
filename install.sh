@@ -22,4 +22,7 @@ if ! command -v chezmoi >/dev/null 2>&1 && [[ ! -x $bin_dir/chezmoi ]]; then
 fi
 
 chezmoi="$(command -v chezmoi || echo "$bin_dir/chezmoi")"
-exec "$chezmoi" init --apply --source="$repo_dir" "$@"
+# init first, then apply: the generated config carries the pre-apply hook that
+# backs up existing files (scripts/backup-before-apply.sh).
+"$chezmoi" init --source="$repo_dir" "$@"
+exec "$chezmoi" apply
