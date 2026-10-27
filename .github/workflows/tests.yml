@@ -15,8 +15,10 @@ jobs:
       matrix:
         test:
           - tests/apps_test.sh
+          - tests/backup_test.sh
           - tests/fonts_test.sh
           - tests/history_merge_test.sh
+          - tests/icons_test.sh
           - tests/install_apps_test.sh
           - tests/tmux_test.sh
           - tests/zsh_startup_test.sh
