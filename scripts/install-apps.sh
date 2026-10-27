@@ -2,7 +2,7 @@
 #
 # Install the command-line tools this config relies on.
 #
-# Usage: install-apps.sh [--machine desktop|server|container] [--no-nala]
+# Usage: install-apps.sh [--machine desktop|server|container] [--nala | --no-nala]
 #                        [--build prebuilt|cargo]
 #
 #   Run by chezmoi (.chezmoiscripts/run_onchange_after_10-install-apps.sh.tmpl)
@@ -15,9 +15,10 @@
 #     extra    server and desktop (APPS_FORCE_EXTRA=1 adds it in containers)
 #     desktop  desktop only
 #
-#   On apt systems nala is installed first and used for the batch (parallel
-#   downloads). --no-nala keeps apt-get; containers use apt-get unless
-#   APPS_FORCE_NALA=1. A nala failure falls back to apt-get.
+#   On apt systems the batch uses apt-get. --nala (or APPS_NALA=1; the older
+#   APPS_FORCE_NALA=1 works too) installs nala if needed and uses it for
+#   parallel downloads, falling back to apt-get if it fails. --no-nala wins
+#   over the environment.
 #
 #   The tools come from apps/apps.tsv, the app manifest shared with the portable
 #   build (apps/lib.sh reads it; the file documents the columns). Each row in a
@@ -255,8 +256,9 @@ setup_nala() {
 }
 
 main() {
-    local machine="" nala=1 build=${APPS_BUILD:-prebuilt}
-    local usage="Usage: $0 [--machine desktop|server|container] [--no-nala] [--build prebuilt|cargo]"
+    local machine="" nala=0 build=${APPS_BUILD:-prebuilt}
+    [[ -n ${APPS_NALA:-}${APPS_FORCE_NALA:-} ]] && nala=1
+    local usage="Usage: $0 [--machine desktop|server|container] [--nala | --no-nala] [--build prebuilt|cargo]"
     while (( $# )); do
         case "$1" in
             --machine)
@@ -264,6 +266,7 @@ main() {
                 shift
                 ;;
             --machine=*) machine="${1#--machine=}" ;;
+            --nala) nala=1 ;;
             --no-nala) nala=0 ;;
             --build)
                 build="${2:-}"
@@ -360,9 +363,7 @@ main() {
 
     if [[ $pm == apt ]]; then
         run "${sudo[@]}" apt-get update
-        if (( nala )) && [[ $machine == container ]] && [[ -z ${APPS_FORCE_NALA:-} ]]; then
-            echo "Running in a container: using apt-get (set APPS_FORCE_NALA=1 to use nala)."
-        elif (( nala )) && setup_nala "${sudo[@]}"; then
+        if (( nala )) && setup_nala "${sudo[@]}"; then
             install=(nala install -y --no-install-recommends)
         fi
     fi
