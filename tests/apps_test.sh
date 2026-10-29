@@ -109,22 +109,23 @@ test_known_portable_values() {
     assert_eq "$OUTPUT" ""
 }
 
-# The dev bundle is built on x86 from releases only, so a dev row needs one.
-test_dev_rows_have_release() {
-    real 'for n in $(apps_names --portable dev); do
-        [[ $(app "$n" release) != - ]] || echo "$n: dev row has no release"
+# The dev bundle is built on x86 from releases and static: builds, so a dev
+# row needs one of them.
+test_dev_rows_have_source() {
+    local check='for n in $(apps_names --portable dev); do
+        [[ $(app "$n" release) != - || $(app "$n" build) == static:* ]] || echo "$n: dev row has no release or static build"
     done'
+    real "$check"
     assert_eq "$OUTPUT" ""
-    printf '%s\n%s\n' "$HEADER" 'nor core dev a b c d - f g crate:nor' >"$SANDBOX/a.tsv"
-    al "apps_load '$SANDBOX/a.tsv'; for n in \$(apps_names --portable dev); do
-        [[ \$(app \"\$n\" release) != - ]] || echo \"\$n: dev row has no release\"
-    done"
-    assert_eq "$OUTPUT" "nor: dev row has no release"
+    printf '%s\n%s\n%s\n' "$HEADER" 'nor core dev a b c d - f g crate:nor' \
+        'sta core dev a b c d - f g static:sta' >"$SANDBOX/a.tsv"
+    al "apps_load '$SANDBOX/a.tsv'; $check"
+    assert_eq "$OUTPUT" "nor: dev row has no release or static build"
 }
 
 test_known_build_sources() {
     real 'for n in "${APPS_NAMES[@]}"; do
-        [[ $(app "$n" build) =~ ^(crate:[a-z0-9_-]+(:[A-Za-z0-9_-]+)?(:.*)?|go:[^[:space:]]+|cross:[a-z0-9-]+|pipx:[^[:space:]]+|-)$ ]] ||
+        [[ $(app "$n" build) =~ ^(crate:[a-z0-9_-]+(:[A-Za-z0-9_-]+)?(:.*)?|go:[^[:space:]]+|cross:[a-z0-9-]+|static:[a-z0-9-]+|pipx:[^[:space:]]+|-)$ ]] ||
             echo "$n: bad build $(app "$n" build)"
     done'
     assert_eq "$OUTPUT" ""
@@ -136,6 +137,16 @@ test_cross_rows_have_no_release() {
     done
     app tmux build'
     assert_eq "$OUTPUT" "cross:tmux"
+}
+
+# static:NAME rows are built from source by the portable build; a release
+# would never be used.
+test_static_rows_have_no_release() {
+    real 'for n in "${APPS_NAMES[@]}"; do
+        [[ $(app "$n" build) == static:* && $(app "$n" release) != - ]] && echo "$n: static row has release"
+    done
+    printf "%s|" "$(app ss build)" "$(app ss portable)" "$(app ss apt)" "$(app lsof build)" "$(app lsof portable)" "$(app lsof tier)"'
+    assert_eq "$OUTPUT" "static:ss|zssh,dev|iproute2|static:lsof|zssh,dev|extra|"
 }
 
 test_lock_names_in_manifest() {

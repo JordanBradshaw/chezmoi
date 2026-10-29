@@ -25,7 +25,8 @@
 #   selected tier is installed from its package-manager package; a tool with no
 #   package, or whose package fails, is downloaded from its GitHub release with
 #   eget (release, file and assets columns; Linux only). A pipx:SPEC build with
-#   no package or release is installed with `pipx install SPEC`.
+#   no package or release is installed with `pipx install SPEC`. A static:
+#   build is for the portable bundles only: with no package it is skipped.
 #
 #   eget authenticates with EGET_GITHUB_TOKEN from the environment, then
 #   ~/.config/secrets/env, then `gh auth token`.
@@ -352,6 +353,9 @@ main() {
             if [[ $build == prebuilt ]] && ! command -v "$name" >/dev/null 2>&1; then
                 echo "$name: built only with --build cargo (no package or release); skipping."
             fi
+        elif [[ $spec == static:* ]]; then
+            # The static build is for portable bundles only.
+            command -v "$name" >/dev/null 2>&1 || echo "$name: no $pm package; skipping."
         else
             failed+=("$name")
         fi

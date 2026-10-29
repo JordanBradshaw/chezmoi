@@ -318,6 +318,16 @@ test_crate_only_row_built_with_cargo() {
     return 0
 }
 
+# ss has no Homebrew package; its static: build is for portable bundles only.
+test_static_row_without_package_skipped() {
+    stub brew
+    stub eget
+    run_apps --machine server
+    assert_status 0
+    assert_output_matches "^ss: no brew package"
+    assert_call_matches "^brew install .*\\blsof\\b"
+}
+
 test_stow_is_not_installed() {
     stub apt-get
     run_apps --machine desktop --no-nala
