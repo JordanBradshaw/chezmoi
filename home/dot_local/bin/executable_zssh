@@ -41,7 +41,7 @@ if (( $# == 0 )); then
     exit 2
 fi
 
-remote_dir=${ZSSH_REMOTE_DIR:-'$HOME/.zsh-portable'}
+remote_dir=${ZSSH_REMOTE_DIR:-'/tmp/.zsh-portable'}
 
 # Icons (eza, lsd, tmux status) are drawn by the local terminal's font; the
 # host can't supply one. chezmoi installs FiraCode Nerd Font on desktops.
