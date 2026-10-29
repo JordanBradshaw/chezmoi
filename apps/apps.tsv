@@ -6,7 +6,8 @@
 #   name     binary name, installed as "name".
 #   tier     install-apps tier: core, extra, desktop; "-" = portable bundles only.
 #   portable which portable zsh bundles ship it: zssh (ssh), dev (devcontainer),
-#            "zssh,dev" (both) or "-". A dev row needs a release download.
+#            "zssh,dev" (both) or "-". A dev row needs a release download
+#            or a static: build.
 #   apt pacman dnf brew
 #            package name per package manager; "-" = not packaged.
 #   release  GitHub owner/name to download a release binary from with eget.
@@ -22,7 +23,10 @@
 #   build    how build-tools.sh makes it for a profile (see its header) and
 #            install-apps --build cargo: crate:CRATE[:BIN][:ARGS],
 #            go:MODULE[//SUBPKG], cross:NAME (built with cross/NAME.sh ARCH
-#            OUT, e.g. tmux with the Jetson Yocto SDK), or "-" = take the
+#            OUT, e.g. tmux with the Jetson Yocto SDK), static:NAME (a static
+#            musl binary built from source by the portable build with
+#            static/NAME.sh ARCH OUT, for tools with no release binary; hosts
+#            use the package and skip it without one), or "-" = take the
 #            release download. Rows sharing a crates.io name with another
 #            project (usbtree), needing C libraries the static build lacks
 #            (rustnet: libpcap, atuin: OpenSSL, tracexec: libbpf/libelf,
@@ -59,6 +63,8 @@
   dust           extra    zssh,dev  du-dust         dust           du-dust          dust            bootandy/dust                   dust           musl|gnu                              crate:du-dust:dust
   btm            extra    zssh,dev  btm             bottom         bottom           bottom          ClementTsang/bottom             btm            musl,tar.gz|gnu,tar.gz                crate:bottom:btm
   htop           extra    -         htop            htop           htop             htop            -                               -              -                                     -
+  ss             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ss
+  lsof           extra    zssh,dev  lsof            lsof           lsof             lsof            -                               -              -                                     static:lsof
   tmux           extra    zssh      tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux
   starship       extra    -         starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship
   micro          extra    -         micro           micro          micro            micro           -                               -              -                                     -
