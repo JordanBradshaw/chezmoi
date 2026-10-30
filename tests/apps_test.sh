@@ -177,10 +177,10 @@ test_zssh_bpf_tools() {
 }
 
 # Monitoring tools for zssh hosts only: btop and sysdig from releases,
-# nethogs and iftop built static.
+# nethogs, iftop and below built static.
 test_zssh_monitoring_tools() {
-    real 'for n in btop sysdig csysdig nethogs iftop; do printf "%s|" "$(app $n tier)$(app $n portable)" "$(app $n release)" "$(app $n build)"; done'
-    assert_eq "$OUTPUT" "-zssh|aristocratos/btop|-|-zssh|draios/sysdig|-|-zssh|draios/sysdig|-|-zssh|-|static:nethogs|-zssh|-|static:iftop|"
+    real 'for n in btop sysdig csysdig nethogs iftop below; do printf "%s|" "$(app $n tier)$(app $n portable)" "$(app $n release)" "$(app $n build)"; done'
+    assert_eq "$OUTPUT" "-zssh|aristocratos/btop|-|-zssh|draios/sysdig|-|-zssh|draios/sysdig|-|-zssh|-|static:nethogs|-zssh|-|static:iftop|-zssh|-|static:below|"
 }
 
 # pipx installs on hosts only; build-tools.sh has no pipx recipe.

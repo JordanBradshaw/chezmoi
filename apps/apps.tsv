@@ -123,3 +123,4 @@
   csysdig        -        zssh      -               -              -                -               draios/sysdig                   sysdig-*/usr/bin/csysdig  x86_64,tar.gz|aarch64,tar.gz  -
   nethogs        -        zssh      nethogs         nethogs        nethogs          nethogs         -                               -              -                                     static:nethogs
   iftop          -        zssh      iftop           iftop          iftop            iftop           -                               -              -                                     static:iftop
+  below          -        zssh      -               -              below            -               -                               -              -                                     static:below
