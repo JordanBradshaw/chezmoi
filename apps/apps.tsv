@@ -116,3 +116,5 @@
   binsider       -        zssh,dev  -               -              -                -               orhun/binsider                  binsider       musl|gnu                              crate:binsider
   pueue          -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueue*         pueue-                                crate:pueue
   pueued         -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueued*        pueued                                crate:pueue:pueued
+  pwru           -        zssh      -               -              -                -               cilium/pwru                     pwru           tar.gz                                -
+  bpftrace       -        zssh      bpftrace        bpftrace       bpftrace         -               bpftrace/bpftrace               bpftrace*      x86_64,^bundle|aarch64,^bundle        -

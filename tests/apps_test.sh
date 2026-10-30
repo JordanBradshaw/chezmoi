@@ -169,6 +169,13 @@ test_merged_rows() {
     assert_eq "$OUTPUT" "ripgrep|extra|nushell/nushell|-|desktop|-|"
 }
 
+# eBPF tools for zssh hosts only; bpftrace's raw release assets name only
+# the CPU, so each alternative picks one.
+test_zssh_bpf_tools() {
+    real 'for n in pwru bpftrace; do printf "%s|" "$(app $n tier)" "$(app $n portable)" "$(app $n release)" "$(app $n assets)"; done'
+    assert_eq "$OUTPUT" "-|zssh|cilium/pwru|tar.gz|-|zssh|bpftrace/bpftrace|x86_64,^bundle|aarch64,^bundle|"
+}
+
 # pipx installs on hosts only; build-tools.sh has no pipx recipe.
 test_pipx_rows_not_portable() {
     real 'for n in $(apps_names --portable zssh; apps_names --portable dev); do
