@@ -118,3 +118,8 @@
   pueued         -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueued*        pueued                                crate:pueue:pueued
   pwru           -        zssh      -               -              -                -               cilium/pwru                     pwru           tar.gz                                -
   bpftrace       -        zssh      bpftrace        bpftrace       bpftrace         -               bpftrace/bpftrace               bpftrace*      x86_64,^bundle|aarch64,^bundle        -
+  btop           -        zssh      btop            btop           btop             btop            aristocratos/btop               ./btop/bin/btop  musl                                -
+  sysdig         -        zssh      sysdig          sysdig         sysdig           -               draios/sysdig                   sysdig-*/usr/bin/sysdig  x86_64,tar.gz|aarch64,tar.gz  -
+  csysdig        -        zssh      -               -              -                -               draios/sysdig                   sysdig-*/usr/bin/csysdig  x86_64,tar.gz|aarch64,tar.gz  -
+  nethogs        -        zssh      nethogs         nethogs        nethogs          nethogs         -                               -              -                                     static:nethogs
+  iftop          -        zssh      iftop           iftop          iftop            iftop           -                               -              -                                     static:iftop
