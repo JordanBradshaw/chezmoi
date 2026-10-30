@@ -176,6 +176,13 @@ test_zssh_bpf_tools() {
     assert_eq "$OUTPUT" "-|zssh|cilium/pwru|tar.gz|-|zssh|bpftrace/bpftrace|x86_64,^bundle|aarch64,^bundle|"
 }
 
+# Monitoring tools for zssh hosts only: btop and sysdig from releases,
+# nethogs and iftop built static.
+test_zssh_monitoring_tools() {
+    real 'for n in btop sysdig csysdig nethogs iftop; do printf "%s|" "$(app $n tier)$(app $n portable)" "$(app $n release)" "$(app $n build)"; done'
+    assert_eq "$OUTPUT" "-zssh|aristocratos/btop|-|-zssh|draios/sysdig|-|-zssh|draios/sysdig|-|-zssh|-|static:nethogs|-zssh|-|static:iftop|"
+}
+
 # pipx installs on hosts only; build-tools.sh has no pipx recipe.
 test_pipx_rows_not_portable() {
     real 'for n in $(apps_names --portable zssh; apps_names --portable dev); do
