@@ -106,8 +106,18 @@ EOF
     chmod +x "$STUBS/fc-list"
 }
 
+# The remote dir defaults to /tmp/.zsh-portable; the stub ssh runs remote
+# commands on this machine, so tests keep it in the sandbox's remote home.
 run_zssh() {
     OUTPUT="$(PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
+        ZSSH_REMOTE_DIR="${ZSSH_REMOTE_DIR-$REMOTE_HOME/.zsh-portable}" \
+        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" "$@" 2>&1)"
+    STATUS=$?
+}
+
+# run_zssh_default: run_zssh without ZSSH_REMOTE_DIR.
+run_zssh_default() {
+    OUTPUT="$(env -u ZSSH_REMOTE_DIR PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
         XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" "$@" 2>&1)"
     STATUS=$?
 }
@@ -266,6 +276,14 @@ test_zssh_requires_host() {
     assert_output_matches "[Uu]sage"
 }
 
+# Checked through the probe only: a full run would write the real /tmp.
+test_zssh_default_remote_dir_is_tmp() {
+    stub_remote
+    REMOTE_ARCH=mips run_zssh_default jetson
+    assert_call_matches '^cat "/tmp/.zsh-portable/app/VERSION"'
+    refute_call_matches "^ssh .* -t "
+}
+
 test_zssh_custom_remote_dir() {
     stub_remote
     ZSSH_REMOTE_DIR="$SANDBOX/elsewhere" run_zssh jetson
@@ -282,6 +300,18 @@ test_zssh_warns_without_local_nerd_font() {
     assert_file_contains "$REMOTE_HOME/remote.log" "^enter v1$"
 }
 
+# grep -q stops reading at the first match; under pipefail the killed
+# fc-list (SIGPIPE) must not count as "no Nerd Font".
+test_zssh_quiet_with_nerd_font_in_long_font_list() {
+    stub_remote
+    printf '%s\n' '#!/usr/bin/env bash' 'echo "FiraCode Nerd Font"' \
+        'for ((i = 0; i < 200000; i++)); do echo "Font $i"; done' >"$STUBS/fc-list"
+    run_zssh jetson
+    assert_status 0
+    grep -q "Nerd Font" <<<"$OUTPUT" && fail "warned despite a Nerd Font"
+    return 0
+}
+
 test_zssh_quiet_with_local_nerd_font() {
     stub_remote
     FAKE_FONTS=$'Fira Code\nFiraCode Nerd Font Mono' run_zssh jetson
@@ -295,7 +325,7 @@ test_zssh_uses_zssh_deploy() {
     mkdir -p "$SANDBOX/deploy/portable"
     cp "$STUBS/build.sh" "$SANDBOX/deploy/portable/build.sh"
     OUTPUT="$(env -u ZSSH_BUILDER PATH="$STUBS:$PATH" ZSSH_DEPLOY="$SANDBOX/deploy" \
-        CHEZMOI_SRC="$SANDBOX" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+        CHEZMOI_SRC="$SANDBOX" ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
     STATUS=$?
     assert_status 0
     assert_call_matches "^build --arch aarch64$"
@@ -306,9 +336,78 @@ test_zssh_falls_back_to_chezmoi_external() {
     mkdir -p "$SANDBOX/xdg/chezmoi-deploy/portable"
     cp "$STUBS/build.sh" "$SANDBOX/xdg/chezmoi-deploy/portable/build.sh"
     OUTPUT="$(env -u ZSSH_BUILDER -u ZSSH_DEPLOY PATH="$STUBS:$PATH" XDG_DATA_HOME="$SANDBOX/xdg" \
-        CHEZMOI_SRC="$SANDBOX" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+        CHEZMOI_SRC="$SANDBOX" ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
     STATUS=$?
     assert_status 0
+    assert_call_matches "^build --arch aarch64$"
+}
+
+# A chezmoi-deploy checkout next to the chezmoi one (~/repos/chezmoi-deploy
+# beside ~/repos/chezmoi) wins over the chezmoi external, which chezmoi only
+# pulls weekly.
+test_zssh_prefers_deploy_next_to_chezmoi_src() {
+    stub_remote
+    mkdir -p "$SANDBOX/repos/chezmoi" "$SANDBOX/repos/chezmoi-deploy/portable" "$SANDBOX/xdg/chezmoi-deploy/portable"
+    sed 's/^echo "build /echo "sibling build /' "$STUBS/build.sh" >"$SANDBOX/repos/chezmoi-deploy/portable/build.sh"
+    cp "$STUBS/build.sh" "$SANDBOX/xdg/chezmoi-deploy/portable/build.sh"
+    chmod +x "$SANDBOX/repos/chezmoi-deploy/portable/build.sh"
+    OUTPUT="$(env -u ZSSH_BUILDER -u ZSSH_DEPLOY PATH="$STUBS:$PATH" XDG_DATA_HOME="$SANDBOX/xdg" \
+        CHEZMOI_SRC="$SANDBOX/repos/chezmoi" ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" \
+        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+    STATUS=$?
+    assert_status 0
+    assert_call_matches "^sibling build --arch aarch64$"
+}
+
+# deploy_external_clone: $SANDBOX/xdg/chezmoi-deploy as a clone of a local
+# origin holding the stub builder, then one newer commit on the origin.
+deploy_external_clone() {
+    local origin="$SANDBOX/origin"
+    mkdir -p "$origin/portable"
+    cp "$STUBS/build.sh" "$origin/portable/build.sh"
+    git -C "$origin" init -q -b main
+    git -C "$origin" add -A
+    git -C "$origin" -c user.name=t -c user.email=t@t commit -qm one
+    git clone -q "$origin" "$SANDBOX/xdg/chezmoi-deploy"
+    echo new >"$origin/NEW"
+    git -C "$origin" add NEW
+    git -C "$origin" -c user.name=t -c user.email=t@t commit -qm two
+}
+
+run_zssh_external() {
+    OUTPUT="$(env -u ZSSH_BUILDER -u ZSSH_DEPLOY PATH="$STUBS:$PATH" XDG_DATA_HOME="$SANDBOX/xdg" \
+        CHEZMOI_SRC="$SANDBOX" ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" \
+        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" "$@" 2>&1)"
+    STATUS=$?
+}
+
+test_zssh_updates_stale_external_checkout() {
+    stub_remote
+    deploy_external_clone
+    touch -d '2 days ago' "$SANDBOX/xdg/chezmoi-deploy/.git/FETCH_HEAD"
+    run_zssh_external jetson
+    assert_status 0
+    [[ -f $SANDBOX/xdg/chezmoi-deploy/NEW ]] || fail "checkout not updated"
+}
+
+test_zssh_skips_update_of_fresh_external_checkout() {
+    stub_remote
+    deploy_external_clone
+    touch "$SANDBOX/xdg/chezmoi-deploy/.git/FETCH_HEAD"
+    run_zssh_external jetson
+    assert_status 0
+    [[ ! -e $SANDBOX/xdg/chezmoi-deploy/NEW ]] || fail "fresh checkout pulled"
+    return 0
+}
+
+test_zssh_failed_update_warns_and_continues() {
+    stub_remote
+    deploy_external_clone
+    touch -d '2 days ago' "$SANDBOX/xdg/chezmoi-deploy/.git/FETCH_HEAD"
+    rm -rf "$SANDBOX/origin"
+    run_zssh_external jetson
+    assert_status 0
+    assert_output_matches "zssh: could not update .*chezmoi-deploy"
     assert_call_matches "^build --arch aarch64$"
 }
 
@@ -330,7 +429,7 @@ test_zssh_exports_chezmoi_src() {
     printf '#!/bin/sh\necho "%s"\n' "$SANDBOX/cz/home" >"$STUBS/chezmoi"
     chmod +x "$STUBS/chezmoi"
     OUTPUT="$(env -u CHEZMOI_SRC PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
-        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+        ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
     STATUS=$?
     assert_status 0
     assert_call_matches "^CHEZMOI_SRC=$SANDBOX/cz$"
@@ -368,7 +467,7 @@ test_zssh_builder_override_tolerates_failing_chezmoi() {
     printf '#!/bin/sh\necho boom >&2\nexit 1\n' >"$STUBS/chezmoi"
     chmod +x "$STUBS/chezmoi"
     OUTPUT="$(env -u CHEZMOI_SRC PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
-        XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
+        ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
     STATUS=$?
     assert_status 0
     ! grep -q boom <<<"$OUTPUT" || fail "chezmoi stderr leaked"

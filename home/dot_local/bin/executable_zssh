@@ -7,17 +7,19 @@
 #
 #   Builds (or reuses) a bundle for the host's CPU with
 #   portable/build.sh from a chezmoi-deploy checkout, uploads it over ssh only when it changed, and
-#   starts the bundled zsh. Everything lives in ~/.zsh-portable on the host;
-#   delete that directory to remove it. No secrets are ever bundled.
+#   starts the bundled zsh. Everything lives in /tmp/.zsh-portable on the
+#   host; delete that directory to remove it. No secrets are ever bundled.
 #
 #   --rebuild   rebuild the bundle even if the dotfiles didn't change
 #   --refresh   also re-download zsh, tools and plugins
 #
 # Environment:
-#   ZSSH_REMOTE_DIR  bundle dir on the host (default: $HOME/.zsh-portable,
+#   ZSSH_REMOTE_DIR  bundle dir on the host (default: /tmp/.zsh-portable,
 #                    expanded by the remote shell)
-#   ZSSH_DEPLOY      chezmoi-deploy checkout (default:
-#                    ${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy)
+#   ZSSH_DEPLOY      chezmoi-deploy checkout (default: chezmoi-deploy next to
+#                    the chezmoi checkout, else the chezmoi external in
+#                    ${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy,
+#                    which zssh pulls when it wasn't fetched for a day)
 #   ZSSH_BUILDER     build script (default: $ZSSH_DEPLOY/portable/build.sh)
 #   CHEZMOI_SRC      chezmoi checkout (default: git root of chezmoi source-path)
 
@@ -45,14 +47,41 @@ remote_dir=${ZSSH_REMOTE_DIR:-'/tmp/.zsh-portable'}
 
 # Icons (eza, lsd, tmux status) are drawn by the local terminal's font; the
 # host can't supply one. chezmoi installs FiraCode Nerd Font on desktops.
-if command -v fc-list >/dev/null 2>&1 && ! fc-list : family 2>/dev/null | grep -qi 'Nerd Font'; then
+# The list is read whole: grep -q would kill fc-list early, and pipefail
+# would count that as no match.
+if command -v fc-list >/dev/null 2>&1 \
+    && ! grep -qi 'Nerd Font' <<<"$(fc-list : family 2>/dev/null)"; then
     echo "zssh: no Nerd Font installed locally, icons will show as boxes" >&2
 fi
 
+if [[ -z ${CHEZMOI_SRC:-} ]]; then
+    sp="$(chezmoi source-path 2>/dev/null)" || sp=""
+    if [[ -n $sp ]] && CHEZMOI_SRC="$(git -C "$sp" rev-parse --show-toplevel 2>/dev/null)" && [[ -n $CHEZMOI_SRC ]]; then
+        :
+    else
+        unset CHEZMOI_SRC
+    fi
+fi
+
+# update_external DIR: chezmoi pulls its chezmoi-deploy external only weekly,
+# so pull it here when it wasn't fetched for a day. A failed pull (offline)
+# warns and builds with what is there.
+update_external() {
+    local dir=$1 stamp=$1/.git/FETCH_HEAD
+    [[ -d $dir/.git ]] || return 0
+    [[ -e $stamp ]] || stamp=$dir/.git/HEAD
+    [[ -n $(find "$stamp" -mmin +1440 2>/dev/null) ]] || return 0
+    if ! timeout 30 git -C "$dir" pull --quiet --ff-only </dev/null >/dev/null 2>&1; then
+        echo "zssh: could not update $dir, building with it as is" >&2
+    fi
+}
+
 builder=${ZSSH_BUILDER:-}
 if [[ -z $builder ]]; then
-    for dir in "${ZSSH_DEPLOY:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy"; do
+    external="${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy"
+    for dir in "${ZSSH_DEPLOY:-}" "${CHEZMOI_SRC:+$(dirname "$CHEZMOI_SRC")/chezmoi-deploy}" "$external"; do
         if [[ -n $dir && -x $dir/portable/build.sh ]]; then
+            [[ $dir != "$external" ]] || update_external "$dir"
             builder="$dir/portable/build.sh"
             break
         fi
@@ -61,17 +90,9 @@ if [[ -z $builder ]]; then
         echo "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop" >&2
         exit 1
     fi
-fi
-
-if [[ -z ${CHEZMOI_SRC:-} ]]; then
-    sp="$(chezmoi source-path 2>/dev/null)" || sp=""
-    if [[ -n $sp ]] && CHEZMOI_SRC="$(git -C "$sp" rev-parse --show-toplevel 2>/dev/null)" && [[ -n $CHEZMOI_SRC ]]; then
-        :
-    elif [[ -z ${ZSSH_BUILDER:-} ]]; then
+    if [[ -z ${CHEZMOI_SRC:-} ]]; then
         echo "zssh: set CHEZMOI_SRC to your chezmoi checkout" >&2
         exit 1
-    else
-        unset CHEZMOI_SRC
     fi
 fi
 [[ -z ${CHEZMOI_SRC:-} ]] || export CHEZMOI_SRC
