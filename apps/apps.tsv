@@ -64,6 +64,7 @@
   btm            extra    zssh,dev  btm             bottom         bottom           bottom          ClementTsang/bottom             btm            musl,tar.gz|gnu,tar.gz                crate:bottom:btm
   htop           extra    -         htop            htop           htop             htop            -                               -              -                                     -
   ss             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ss
+  nstat          extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:nstat
   lsof           extra    zssh,dev  lsof            lsof           lsof             lsof            -                               -              -                                     static:lsof
   tmux           extra    zssh      tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux
   starship       extra    -         starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship

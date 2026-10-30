@@ -145,8 +145,9 @@ test_static_rows_have_no_release() {
     real 'for n in "${APPS_NAMES[@]}"; do
         [[ $(app "$n" build) == static:* && $(app "$n" release) != - ]] && echo "$n: static row has release"
     done
-    printf "%s|" "$(app ss build)" "$(app ss portable)" "$(app ss apt)" "$(app lsof build)" "$(app lsof portable)" "$(app lsof tier)"'
-    assert_eq "$OUTPUT" "static:ss|zssh,dev|iproute2|static:lsof|zssh,dev|extra|"
+    printf "%s|" "$(app ss build)" "$(app ss portable)" "$(app ss apt)" "$(app lsof build)" "$(app lsof portable)" "$(app lsof tier)" \
+        "$(app nstat build)" "$(app nstat portable)" "$(app nstat apt)" "$(app nstat brew)"'
+    assert_eq "$OUTPUT" "static:ss|zssh,dev|iproute2|static:lsof|zssh,dev|extra|static:nstat|zssh,dev|iproute2|-|"
 }
 
 test_lock_names_in_manifest() {
