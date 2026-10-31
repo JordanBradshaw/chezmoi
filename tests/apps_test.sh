@@ -184,6 +184,13 @@ test_zssh_monitoring_tools() {
     assert_eq "$OUTPUT" "-zssh|aristocratos/btop|-|-zssh|draios/sysdig|-|-zssh|draios/sysdig|-|-zssh|-|static:nethogs|-zssh|-|static:iftop|-zssh|-|static:below|"
 }
 
+# Network debugging tools built static for both bundles; hosts use the
+# distro package.
+test_network_debug_tools() {
+    real 'for n in ip tc tcpdump ethtool strace iperf3 socat; do printf "%s|" "$(app $n tier) $(app $n portable) $(app $n apt) $(app $n build)"; done'
+    assert_eq "$OUTPUT" "extra zssh,dev iproute2 static:ip|extra zssh,dev iproute2 static:tc|extra zssh,dev tcpdump static:tcpdump|extra zssh,dev ethtool static:ethtool|extra zssh,dev strace static:strace|extra zssh,dev iperf3 static:iperf3|extra zssh,dev socat static:socat|"
+}
+
 # pipx installs on hosts only; build-tools.sh has no pipx recipe.
 test_pipx_rows_not_portable() {
     real 'for n in $(apps_names --portable zssh; apps_names --portable dev); do

@@ -65,6 +65,13 @@
   htop           extra    -         htop            htop           htop             htop            -                               -              -                                     -
   ss             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ss
   nstat          extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:nstat
+  ip             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ip
+  tc             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:tc
+  tcpdump        extra    zssh,dev  tcpdump         tcpdump        tcpdump          tcpdump         -                               -              -                                     static:tcpdump
+  ethtool        extra    zssh,dev  ethtool         ethtool        ethtool          -               -                               -              -                                     static:ethtool
+  strace         extra    zssh,dev  strace          strace         strace           -               -                               -              -                                     static:strace
+  iperf3         extra    zssh,dev  iperf3          iperf3         iperf3           iperf3          -                               -              -                                     static:iperf3
+  socat          extra    zssh,dev  socat           socat          socat            socat           -                               -              -                                     static:socat
   lsof           extra    zssh,dev  lsof            lsof           lsof             lsof            -                               -              -                                     static:lsof
   tmux           extra    zssh      tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux
   starship       extra    -         starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship
