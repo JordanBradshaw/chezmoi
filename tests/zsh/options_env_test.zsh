@@ -13,7 +13,6 @@ test_options() {
     interactive_comments prompt_subst rm_star_wait; do
     [[ -o $o ]] || fail "$o not set"
   done
-  # zstyles.d relies on this: an unquoted # there would be a glob otherwise.
   [[ ! -o nomatch ]] || fail "nomatch still on"
   [[ ! -o flow_control && ! -o beep ]] || fail "flow_control/beep still on"
 }

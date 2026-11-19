@@ -1,1 +1,9 @@
 .config/zsh/zshenv.d/10-toolchains.zsh
+.config/zsh/zstyles.d/10-completion.zsh
+.config/zsh/zstyles.d/15-ssh.zsh
+.config/zsh/zstyles.d/20-display.zsh
+.config/zsh/zstyles.d/30-git.zsh
+.config/zsh/zstyles.d/40-fzf-tab.zsh
+.config/zsh/zstyles.d/45-fzf-tab-previews.zsh
+.config/zsh/zstyles.d/50-omz-plugins.zsh
+.config/zsh/zstyles.d/60-zshrinkwrap.zsh

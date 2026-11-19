@@ -196,8 +196,8 @@ install_pipx() {
 
 # ensure_rustup: put cargo on PATH, from ~/.cargo/bin, a rustup without a
 # default toolchain, or a fresh rustup install (minimal profile). PATH and
-# the shell config are left alone: zshenv.d/10-toolchains.zsh adds
-# ~/.cargo/bin.
+# the shell config are left alone: the yupps-zsh plugin's
+# zshenv.d/10-toolchains.zsh adds ~/.cargo/bin.
 ensure_rustup() {
     local cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
     PATH="$cargo_bin:$PATH"

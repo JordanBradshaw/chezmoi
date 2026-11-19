@@ -1,6 +1,5 @@
 # Shell options. After 70-plugins, like when the yupps-zsh plugin set them,
-# so they win over oh-my-zsh's lib/history.zsh and zsh-utils. zstyles.d needs
-# NOMATCH off: an unquoted # there would otherwise be a failing glob.
+# so they win over oh-my-zsh's lib/history.zsh and zsh-utils.
 
 # Prompt
 setopt PROMPT_SUBST # expand parameters/commands in prompts

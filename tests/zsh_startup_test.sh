@@ -433,14 +433,15 @@ test_repo_zshrc_d_files_have_their_roles() {
     # use-omz runs omz's update check on load; antidote owns that clone.
     grep -qx "zstyle ':omz:update' mode disabled" "$d/00-early.zsh" || fail "omz updater not disabled early"
     grep -q 'ZSH_PORTABLE.*\.aliases' "$d/90-host.zsh" || fail "90-host lacks the ~/.aliases guard"
-    for f in "$d"/*.zsh "$HOME_DIR/$ZDOT/.zshrc" "$HOME_DIR/$ZDOT"/zshenv.d/*.zsh "$HOME_DIR/$ZDOT"/zstyles.d/*.zsh; do
+    for f in "$d"/*.zsh "$HOME_DIR/$ZDOT/.zshrc" "$HOME_DIR/$ZDOT"/zshenv.d/*.zsh; do
         zsh -n "$f" || fail "syntax: ${f#$HOME_DIR/}"
     done
     return 0
 }
 
 # ---------------------------------------------------------------------------
-# zstyles.d: completion and plugin zstyles, loaded by zshrc.d/80-zstyles.d.zsh
+# zstyles.d: machine-local zstyles, loaded by zshrc.d/80-zstyles.d.zsh. The
+# repo's zstyles live in the yupps-zsh plugin.
 # ---------------------------------------------------------------------------
 
 # zstyles CODE: source 80-zstyles.d.zsh in a clean zsh, then run CODE.
@@ -451,7 +452,7 @@ zstyles() {
 test_zstyles_d_loads_in_order_with_local_files() {
     apply_zsh
     local d="$HOME_DIR/$ZDOT/zstyles.d"
-    [[ -d $d ]] || { fail "no zstyles.d"; return; }
+    mkdir -p "$d"
     printf "zstyle ':completion:*' menu no\n" >"$d/99-local.zsh"
     printf "zstyle ':completion:*' menu skipped\n" >"$d/~99-off.zsh"
     assert_eq "$(zstyles "zstyle -s ':completion:*' menu v; print -r -- \$v")" "no"
@@ -461,52 +462,18 @@ test_zstyles_d_loads_in_order_with_local_files() {
     return 0
 }
 
-test_zstyles_values() {
+# The repo zstyles moved to the yupps-zsh plugin; apply removes the old
+# copies and keeps local files.
+test_repo_zstyles_moved_to_plugin() {
+    local d="$HOME_DIR/$ZDOT/zstyles.d"
+    mkdir -p "$d"
+    printf 'old\n' >"$d/10-completion.zsh"
+    printf 'mine\n' >"$d/99-local.zsh"
     apply_zsh
-    OUTPUT="$(zstyles '
-        zstyle -L ":completion:\*" sort
-        zstyle -L ":completion:\*:complete:" rehash
-        zstyle -L ":completion:\*:kill:\*" command
-        zstyle -L ":fzf-tab:complete:cd:\*"
-        zstyle -s ":completion:*:*:*:*:processes" command v && print -r -- "processes=$v"
-        zstyle -s ":completion:*:corrections" format v && print -r -- "corrections=$v"
-        zstyle -t ":completion:*" keep-prefix && print keep-prefix
-        zstyle -t ":completion:*" list-dirs-first && print list-dirs-first
-        zstyle -t ":completion::complete:*" gain-privileges && print gain-privileges
-        zstyle -t ":omz:plugins:ssh-agent" honor-existing && print ssh-honor-existing
-        zstyle -t ":omz:plugins:ssh-agent" lazy && print ssh-lazy-needs-AddKeysToAgent
-        zstyle -t ":omz:plugins:ssh-agent" quiet && print ssh-quiet
-        zstyle -s ":fzf-tab:complete:z:x" fzf-preview v && print z-preview
-        zstyle -s ":fzf-tab:complete:pushd:x" fzf-preview v && print pushd-preview
-        zstyle -a ":completion:*" matcher-list v && print -r -- "matchers=$#v"
-    ' 2>&1)"
-    assert_eq "$OUTPUT" 'processes=ps -u $USER -o pid,%cpu,tty,cputime,cmd -w -w
-corrections=[%d (errors: %e)]
-keep-prefix
-list-dirs-first
-gain-privileges
-ssh-honor-existing
-ssh-quiet
-z-preview
-pushd-preview
-matchers=4'
-}
-
-# Each context/style pair is set once: a second setting silently wins.
-test_zstyles_set_each_key_once() {
-    apply_zsh
-    OUTPUT="$(cat "$HOME_DIR/$ZDOT"/zstyles.d/*.zsh |
-        sed -nE "s/^[[:space:]]*zstyle[[:space:]]+('[^']*'|\"[^\"]*\")[[:space:]]+([a-z-]+).*/\1 \2/p" |
-        sort | uniq -d)"
-    assert_eq "$OUTPUT" ""
-    # The plugin's 50-completion.zsh owns its keys; zstyles.d loads later and
-    # would override them.
-    local plugin="$HOME/.config/zsh/plugins/yupps-zsh/conf.d/50-completion.zsh"
-    [[ -r $plugin ]] || return 0
-    OUTPUT="$(cat "$plugin" "$HOME_DIR/$ZDOT"/zstyles.d/*.zsh |
-        sed -nE "s/^[[:space:]]*zstyle[[:space:]]+(-e[[:space:]]+)?('[^']*'|\"[^\"]*\")[[:space:]]+([a-z-]+).*/\2 \3/p" |
-        sort | uniq -d)"
-    assert_eq "$OUTPUT" ""
+    [[ -e $d/10-completion.zsh ]] && fail "old 10-completion.zsh kept"
+    [[ -f $d/99-local.zsh ]] || fail "local zstyles.d file removed"
+    [[ -e $REPO_DIR/home/private_dot_config/zsh/zstyles.d ]] && fail "repo still has zstyles.d"
+    return 0
 }
 
 # The first .d layout used hidden dirs; their loader blocks are rewritten.
