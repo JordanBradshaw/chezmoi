@@ -248,6 +248,14 @@ test_nested_shell_does_not_duplicate_toolchain_bins() {
     assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:$HOME_DIR/go/bin:/usr/bin:/bin"
 }
 
+# CPU-tuned tools copied in by hand (Termux) win over everything else.
+test_tuned_bin_first_on_path_when_present() {
+    apply_zsh
+    mkdir -p "$HOME_DIR/.local/tuned/bin" "$HOME_DIR/.cargo/bin"
+    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}"')"
+    assert_eq "$OUTPUT" "$HOME_DIR/.local/tuned/bin:$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:/usr/bin:/bin"
+}
+
 test_zshenv_keeps_inherited_dirs_as_zssh_sets_them() {
     apply_zsh
     # zssh exports these into its bundle; HOME stays the host's.

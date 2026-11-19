@@ -26,7 +26,7 @@ setup() {
     export DIST="$SANDBOX/dist"
     export REMOTE_ARCH=aarch64
     export FAKE_VERSION=v1
-    unset REMOTE_PATH_ONLY
+    unset REMOTE_PATH_ONLY ZSSH_PROFILE ZSSH_PREBUILT_DIR ZSSH_CPUINFO REMOTE_GLIBC FAKE_PROFILE ANDROID_ROOT
     mkdir -p "$STUBS" "$REMOTE_HOME" "$DIST"
     : >"$STUB_LOG"
     OUTPUT=""
@@ -499,6 +499,147 @@ test_deploy_external_not_in_containers() {
             grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "$m lacks chezmoi-deploy external"
         fi
     done
+}
+
+# ---------------------------------------------------------------------------
+# Profiles
+# ---------------------------------------------------------------------------
+
+# stub_picker: pick-profile.sh next to the builder; logs its facts and
+# prints $FAKE_PROFILE. The remote's cpuinfo is $SANDBOX/cpuinfo and its
+# getconf prints $REMOTE_GLIBC.
+stub_picker() {
+    cat >"$STUBS/pick-profile.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'pick' >>"$STUB_LOG"
+printf ' [%s]' "$@" >>"$STUB_LOG"
+echo >>"$STUB_LOG"
+echo "${FAKE_PROFILE:-}"
+EOF
+    chmod +x "$STUBS/pick-profile.sh"
+    printf 'processor\t: 0\nflags\t\t: fpu avx2 bmi2 fma\nCPU part\t: 0xd42\nCPU part\t: 0xd05\n' >"$SANDBOX/cpuinfo"
+    cat >"$SANDBOX/remote-bin/getconf" <<'EOF'
+#!/bin/sh
+[ "$1" = GNU_LIBC_VERSION ] && [ -n "$REMOTE_GLIBC" ] && echo "glibc $REMOTE_GLIBC" && exit 0
+exit 1
+EOF
+    chmod +x "$SANDBOX/remote-bin/getconf"
+    export ZSSH_CPUINFO="$SANDBOX/cpuinfo" REMOTE_GLIBC=2.39 FAKE_PROFILE=""
+}
+
+# prebuilt_bundle PROFILE ARCH VERSION: a bundle in the prebuilt dir.
+prebuilt_bundle() {
+    local app="$SANDBOX/pre-app" dir="$SANDBOX/prebuilt"
+    mkdir -p "$app" "$dir"
+    printf '%s\n' "$3" >"$app/VERSION"
+    printf 'arch %s\nprofile %s\n' "$2" "$1" >"$app/BUILDINFO"
+    printf '#!/bin/sh\necho "setup $1" >>"$HOME/remote.log"\n' >"$app/setup.sh"
+    printf '#!/bin/sh\necho "enter $(cat "$(dirname "$0")/VERSION")" >>"$HOME/remote.log"\n' >"$app/enter"
+    chmod +x "$app/setup.sh" "$app/enter"
+    tar -czf "$dir/zsh-portable-$1.tar.gz" -C "$app" .
+    printf '%s\n' "$3" >"$dir/zsh-portable-$1.version"
+    export ZSSH_PREBUILT_DIR="$dir"
+}
+
+test_zssh_probe_reports_host_facts() {
+    stub_remote
+    stub_picker
+    run_zssh jetson
+    assert_status 0
+    assert_call_matches '^pick \[arch=aarch64\] \[cpu_part=0xd42\] \[glibc=2.39\] \[flags=fpu avx2 bmi2 fma\] \[android=0\]$'
+    assert_call_matches "^build --arch aarch64$"
+}
+
+test_zssh_probe_without_glibc_or_cpu_part() {
+    stub_remote
+    stub_picker
+    printf 'processor\t: 0\n' >"$SANDBOX/cpuinfo"
+    REMOTE_GLIBC="" run_zssh jetson
+    assert_status 0
+    assert_call_matches '^pick \[arch=aarch64\] \[cpu_part=\] \[glibc=\] \[flags=\] \[android=0\]$'
+}
+
+test_zssh_probe_reports_android() {
+    stub_remote
+    stub_picker
+    ANDROID_ROOT=/system run_zssh phone
+    assert_call_matches '\[android=1\]$'
+}
+
+test_zssh_passes_picked_profile() {
+    stub_remote
+    stub_picker
+    FAKE_PROFILE=qos-orin run_zssh jetson
+    assert_status 0
+    assert_call_matches "^build --arch aarch64 --profile qos-orin$"
+}
+
+test_zssh_profile_flag_overrides_detection() {
+    stub_remote
+    stub_picker
+    FAKE_PROFILE=qos-orin run_zssh --profile pi4 --rebuild pi
+    assert_status 0
+    assert_call_matches "^build --arch aarch64 --profile pi4 --force$"
+    refute_call_matches "^pick"
+}
+
+test_zssh_profile_env_overrides_detection() {
+    stub_remote
+    stub_picker
+    FAKE_PROFILE=qos-orin ZSSH_PROFILE=pi4 run_zssh pi
+    assert_call_matches "^build --arch aarch64 --profile pi4$"
+    refute_call_matches "^pick"
+}
+
+# Review Focus 2: "-" forces the generic bundle even on a host that matches.
+test_zssh_profile_dash_forces_generic() {
+    stub_remote
+    stub_picker
+    FAKE_PROFILE=qos-orin ZSSH_PROFILE=- run_zssh jetson
+    assert_status 0
+    assert_call_matches "^build --arch aarch64$"
+    refute_call_matches "^pick"
+}
+
+test_zssh_uses_prebuilt_bundle() {
+    stub_remote
+    stub_picker
+    prebuilt_bundle qos-orin aarch64 pre1
+    FAKE_PROFILE=qos-orin run_zssh jetson
+    assert_status 0
+    refute_call_matches "^build "
+    assert_eq "$(cat "$REMOTE_HOME/.zsh-portable/app/VERSION" 2>/dev/null)" pre1
+    assert_file_contains "$REMOTE_HOME/remote.log" "^enter pre1$"
+}
+
+# Review Focus 1: a prebuilt bundle for another arch never reaches the host.
+test_zssh_refuses_prebuilt_for_other_arch() {
+    stub_remote
+    stub_picker
+    prebuilt_bundle pi4 x86_64 pre1
+    run_zssh --profile pi4 pi
+    [[ $STATUS -ne 0 ]] || fail "wrong-arch prebuilt accepted"
+    assert_output_matches "is for x86_64"
+    refute_call_matches "^ssh .* -t "
+    [[ -e $REMOTE_HOME/.zsh-portable/app ]] && fail "uploaded"
+    return 0
+}
+
+test_zssh_rebuild_ignores_prebuilt() {
+    stub_remote
+    stub_picker
+    prebuilt_bundle qos-orin aarch64 pre1
+    FAKE_PROFILE=qos-orin run_zssh --rebuild jetson
+    assert_call_matches "^build --arch aarch64 --profile qos-orin --force$"
+}
+
+test_zssh_prebuilt_needs_version_file() {
+    stub_remote
+    stub_picker
+    prebuilt_bundle qos-orin aarch64 pre1
+    rm "$ZSSH_PREBUILT_DIR/zsh-portable-qos-orin.version"
+    FAKE_PROFILE=qos-orin run_zssh jetson
+    assert_call_matches "^build --arch aarch64 --profile qos-orin$"
 }
 
 # ---------------------------------------------------------------------------

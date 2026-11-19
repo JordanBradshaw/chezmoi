@@ -3,15 +3,20 @@
 # zssh: ssh into a host with this machine's zsh setup, without installing
 # anything there or needing internet on it.
 #
-# Usage: zssh [--rebuild] [--refresh] [ssh options] host
+# Usage: zssh [--rebuild] [--refresh] [--profile NAME] [ssh options] host
 #
 #   Builds (or reuses) a bundle for the host's CPU with
 #   portable/build.sh from a chezmoi-deploy checkout, uploads it over ssh only when it changed, and
 #   starts the bundled zsh. Everything lives in /tmp/.zsh-portable on the
 #   host; delete that directory to remove it. No secrets are ever bundled.
 #
+#   The host's CPU and glibc pick a build profile with tuned tools
+#   (portable/pick-profile.sh next to the builder); unsure means none, and
+#   the generic bundle for the arch.
+#
 #   --rebuild   rebuild the bundle even if the dotfiles didn't change
 #   --refresh   also re-download zsh, tools and plugins
+#   --profile   use build profile NAME instead of detecting one; - for none
 #
 # Environment:
 #   ZSSH_REMOTE_DIR  bundle dir on the host (default: /tmp/.zsh-portable,
@@ -21,25 +26,37 @@
 #                    ${XDG_DATA_HOME:-$HOME/.local/share}/chezmoi-deploy,
 #                    which zssh pulls when it wasn't fetched for a day)
 #   ZSSH_BUILDER     build script (default: $ZSSH_DEPLOY/portable/build.sh)
+#   ZSSH_PROFILE     like --profile
+#   ZSSH_PREBUILT_DIR  bundles built elsewhere (default:
+#                    ${XDG_CACHE_HOME:-$HOME/.cache}/zsh-portable/prebuilt):
+#                    with a profile, zsh-portable-NAME.tar.gz and .version
+#                    there are used without building (not with --rebuild or
+#                    --refresh)
 #   CHEZMOI_SRC      chezmoi checkout (default: git root of chezmoi source-path)
 
 set -euo pipefail
 
 usage() {
-    sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,33p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 build_flags=()
+profile=${ZSSH_PROFILE:-}
 while (( $# )); do
     case $1 in
         --rebuild) build_flags=(--force); shift ;;
         --refresh) build_flags=(--refresh); shift ;;
+        --profile) profile=${2:-}; shift 2 ;;
         -h | --help) usage; exit 0 ;;
         *) break ;;
     esac
 done
 if (( $# == 0 )); then
     usage >&2
+    exit 2
+fi
+if [[ ! $profile =~ ^([a-z0-9_-]*)$ ]]; then
+    echo "zssh: bad profile name: $profile" >&2
     exit 2
 fi
 
@@ -105,17 +122,55 @@ ssh_opts=(
     -o ControlPersist=60
 )
 
-# -n: the probe must not eat keystrokes meant for the session.
+# -n: the probe must not eat keystrokes meant for the session. Lines 5-8
+# describe the host for pick-profile.sh; each prints a line even when empty.
 probe="$(ssh -n "${ssh_opts[@]}" "$@" "uname -m
 cat \"$remote_dir/app/VERSION\" 2>/dev/null || echo
 command -v tar >/dev/null 2>&1 && echo tar || echo
-command -v gzip >/dev/null 2>&1 && echo gzip || echo")"
+command -v gzip >/dev/null 2>&1 && echo gzip || echo
+echo \"\$(sed -n 's/^CPU part[[:space:]]*: *//p' \"\${ZSSH_CPUINFO:-/proc/cpuinfo}\" 2>/dev/null | head -n1)\" 2>/dev/null
+echo \"\$(getconf GNU_LIBC_VERSION 2>/dev/null | sed -n 's/^glibc //p')\" 2>/dev/null
+echo \"\$(sed -n 's/^flags[[:space:]]*: *//p' \"\${ZSSH_CPUINFO:-/proc/cpuinfo}\" 2>/dev/null | head -n1)\" 2>/dev/null
+if [ -n \"\${ANDROID_ROOT:-}\" ] || [ -e /system/build.prop ]; then echo 1; else echo 0; fi")"
 remote_arch=$(sed -n 1p <<<"$probe")
 remote_version=$(sed -n 2p <<<"$probe")
 remote_tar=$(sed -n 3p <<<"$probe")
 remote_gzip=$(sed -n 4p <<<"$probe")
+remote_cpu_part=$(sed -n 5p <<<"$probe")
+remote_glibc=$(sed -n 6p <<<"$probe")
+remote_flags=$(sed -n 7p <<<"$probe")
+remote_android=$(sed -n 8p <<<"$probe")
 
-bundle="$("$builder" --arch "$remote_arch" "${build_flags[@]}" | tail -n1)"
+# The profile: --profile/ZSSH_PROFILE, else what pick-profile.sh (next to the
+# builder) makes of the host; "-" or no answer means the generic bundle.
+if [[ -z $profile ]]; then
+    picker="$(dirname "$builder")/pick-profile.sh"
+    if [[ -x $picker ]]; then
+        profile="$("$picker" "arch=$remote_arch" "cpu_part=$remote_cpu_part" "glibc=$remote_glibc" \
+            "flags=$remote_flags" "android=${remote_android:-0}" 2>/dev/null)" || profile=""
+        [[ $profile =~ ^[a-z0-9_-]+$ ]] || profile=""
+    fi
+fi
+[[ $profile != - ]] || profile=""
+
+prebuilt_dir=${ZSSH_PREBUILT_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh-portable/prebuilt}
+prebuilt="$prebuilt_dir/zsh-portable-$profile.tar.gz"
+if [[ -n $profile && ${#build_flags[@]} -eq 0 && -f $prebuilt && -f ${prebuilt%.tar.gz}.version ]]; then
+    # Copied from another machine: never upload one built for another arch.
+    built_arch="$(tar -xOzf "$prebuilt" ./BUILDINFO 2>/dev/null | sed -n 's/^arch //p')" || built_arch=""
+    want_arch=$remote_arch
+    [[ $want_arch != arm64 ]] || want_arch=aarch64
+    if [[ $built_arch != "$want_arch" ]]; then
+        echo "zssh: $prebuilt is for ${built_arch:-an unknown arch}, the host is $remote_arch" >&2
+        exit 1
+    fi
+    echo "zssh: using prebuilt $prebuilt" >&2
+    bundle=$prebuilt
+else
+    profile_flags=()
+    [[ -z $profile ]] || profile_flags=(--profile "$profile")
+    bundle="$("$builder" --arch "$remote_arch" "${profile_flags[@]}" "${build_flags[@]}" | tail -n1)"
+fi
 local_version=$(<"${bundle%.tar.gz}.version")
 
 if [[ $local_version != "$remote_version" ]]; then
