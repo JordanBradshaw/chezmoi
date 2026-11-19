@@ -142,6 +142,44 @@ test_termux_font_reload_script() {
     assert_eq "$(cz execute-template <"$script" | tr -d '[:space:]')" ""
 }
 
+# chezmoi runs scripts and hooks with Go's exec, which termux-exec can't
+# rewrite, and Android has no /usr/bin/env: every .sh goes through bash.
+test_termux_runs_scripts_through_bash() {
+    config
+    OUTPUT="$(TERMUX_VERSION=0.118.1 init_config)"
+    grep -A1 -xF '[interpreters.sh]' <<<"$OUTPUT" | grep -qxF '    command = "bash"' ||
+        fail "no bash interpreter for .sh on Termux: $OUTPUT"
+}
+
+test_no_interpreter_override_elsewhere() {
+    config 'machine = "desktop"'
+    OUTPUT="$(init_config)"
+    grep -qF '[interpreters' <<<"$OUTPUT" && fail "interpreter override off Termux: $OUTPUT"
+    return 0
+}
+
+test_apply_hook_runs_through_bash() {
+    config 'machine = "desktop"'
+    OUTPUT="$(init_config)"
+    grep -A2 -xF '[hooks.apply.pre]' <<<"$OUTPUT" | grep -qxF '    command = "bash"' ||
+        fail "hook not run with bash: $OUTPUT"
+    grep -A2 -xF '[hooks.apply.pre]' <<<"$OUTPUT" | grep -qF "args = [\"$REPO_DIR/scripts/backup-before-apply.sh\"]" ||
+        fail "hook args: $OUTPUT"
+}
+
+# The rendered Termux config makes chezmoi run a script whose shebang does
+# not exist, as /usr/bin/env doesn't on Android.
+test_termux_config_runs_script_with_missing_shebang() {
+    local src="$SANDBOX/src" cfg="$SANDBOX/termux.toml"
+    mkdir -p "$src"
+    printf '#!/nonexistent/env bash\necho ran >"%s/ran"\n' "$SANDBOX" >"$src/run_x.sh"
+    config
+    TERMUX_VERSION=0.118.1 init_config | sed -n '/^\[interpreters/,/^$/p' >"$cfg"
+    PATH="/usr/bin:/bin" "$CHEZMOI" --source="$src" --config="$cfg" --persistent-state="$SANDBOX/x.db" \
+        --destination="$SANDBOX/home" apply 2>/dev/null
+    [[ -f $SANDBOX/ran ]] || fail "script did not run with config: $(cat "$cfg")"
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
     run_test "$t"
 done

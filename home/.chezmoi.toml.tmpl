@@ -75,5 +75,15 @@ encryption = "age"
     pager = "delta"
 
 # Back up files apply is about to overwrite: ~/.local/state/chezmoi-backups.
+# Run through bash: chezmoi execs hooks directly, and on Termux nothing
+# rewrites the #!/usr/bin/env shebang (Android has no /usr/bin/env).
 [hooks.apply.pre]
-    command = {{ joinPath .chezmoi.workingTree "scripts/backup-before-apply.sh" | quote }}
+    command = "bash"
+    args = [{{ joinPath .chezmoi.workingTree "scripts/backup-before-apply.sh" | quote }}]
+{{- if $termux }}
+
+# chezmoi execs scripts with Go, which termux-exec can't redirect, so their
+# #!/usr/bin/env shebangs fail on Android: run every .sh script with bash.
+[interpreters.sh]
+    command = "bash"
+{{- end }}
