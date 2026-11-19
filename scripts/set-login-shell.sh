@@ -25,5 +25,10 @@ if ! grep -qxF "$zsh_path" "$shells_file" 2>/dev/null; then
 fi
 
 echo "Changing the login shell to $zsh_path"
+# Passwordless sudo first: cloud VM users often have no password for chsh.
+if [[ $EUID -ne 0 ]] && command -v sudo >/dev/null 2>&1 &&
+    sudo -n chsh -s "$zsh_path" "$(id -un)" 2>/dev/null; then
+    exit 0
+fi
 chsh -s "$zsh_path" || warn "chsh failed; run it yourself: chsh -s $zsh_path"
 exit 0

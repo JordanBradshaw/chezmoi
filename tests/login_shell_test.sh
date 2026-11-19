@@ -74,9 +74,13 @@ render() {
 
 # render_tty MACHINE: the template rendered with a terminal on stdin.
 # script(1) provides it; the template is an argument so stdin stays the
-# terminal. Returns 2 without script(1).
+# terminal. Callers skip with no_script first.
+no_script() {
+    command -v script >/dev/null 2>&1 && return 1
+    echo "  skip $CURRENT: no script(1)"
+}
+
 render_tty() {
-    command -v script >/dev/null 2>&1 || return 2
     printf '[data]\n    machine = "%s"\n    hasSecrets = false\n' "$1" >"$SANDBOX/c.toml"
     script -qec "chezmoi --source='$REPO_DIR' --config='$SANDBOX/c.toml' \
         --persistent-state='$SANDBOX/s.db' --destination='$SANDBOX/home' \
@@ -95,6 +99,27 @@ test_bash_runs_chsh() {
     run_script
     assert_status 0
     assert_eq "$(calls)" "chsh -s $STUBS/zsh"
+}
+
+# stub_sudo STATUS: sudo that logs its arguments and exits STATUS.
+stub_sudo() {
+    printf '#!%s\necho "sudo $*" >>"$STUB_LOG"\nexit %s\n' "$BASH_BIN" "$1" >"$STUBS/sudo"
+    chmod +x "$STUBS/sudo"
+}
+
+# Cloud VM users often have passwordless sudo but no password for chsh.
+test_passwordless_sudo_runs_chsh() {
+    stub_sudo 0
+    run_script
+    assert_status 0
+    assert_eq "$(calls)" "sudo -n chsh -s $STUBS/zsh $(id -un)"
+}
+
+test_sudo_needing_password_falls_back_to_chsh() {
+    stub_sudo 1
+    run_script
+    assert_status 0
+    assert_eq "$(calls)" "sudo -n chsh -s $STUBS/zsh $(id -un)"$'\n'"chsh -s $STUBS/zsh"
 }
 
 test_zsh_not_in_shells_warns_no_chsh() {
@@ -122,7 +147,8 @@ test_no_zsh_warns_exits_0() {
 
 test_template_empty_for_container() {
     local out
-    out="$(render_tty container)" || { echo "  skip $CURRENT: no script(1)"; return 0; }
+    no_script && return 0
+    out="$(render_tty container)" || fail "chezmoi failed: $out"
     [[ $out != *set-login-shell* ]] || fail "container runs set-login-shell: $out"
 }
 
@@ -134,7 +160,8 @@ test_template_empty_without_tty() {
 
 test_template_runs_script_on_tty() {
     local out
-    out="$(render_tty server)" || { echo "  skip $CURRENT: no script(1)"; return 0; }
+    no_script && return 0
+    out="$(render_tty server)" || fail "chezmoi failed: $out"
     assert_match "$out" "set-login-shell.sh hash: [0-9a-f]{64}"
     assert_match "$out" "exec \"$REPO_DIR/scripts/set-login-shell.sh\""
 }
