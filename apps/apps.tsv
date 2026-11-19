@@ -40,8 +40,8 @@
 #   termux   Termux package (pkg); optional column, "-" = not packaged. On
 #            Termux a row without one is skipped: release binaries need glibc,
 #            or a /etc/resolv.conf Android lacks. With --build cargo its
-#            crate: build is made natively. tcpdump, ethtool, btop, nethogs
-#            and below come from Termux's root-repo.
+#            crate: build is made natively. tcpdump and ethtool come from
+#            Termux's root-repo.
 #
 # Static musl builds come first so binaries run on older glibc (JetPack 4 is
 # Ubuntu 18.04). A tool with no build for an arch is skipped with a warning.
