@@ -22,8 +22,11 @@ want them compiled on the phone (slow; see below).
 
 The apply then:
 
-- installs the tools from the manifest's `termux` column with `pkg`
-  (no sudo), after `root-repo`, `openssh`, `python` and `golang`;
+- adds `root-repo` and upgrades every package (Termux is rolling, so
+  installing onto stale packages would be a partial upgrade), keeping
+  config files you changed;
+- installs `openssh`, `python` and `golang` (for zssh) and the tools from
+  the manifest's `termux` column with `pkg` (no sudo);
 - skips tools without a Termux package: release binaries need glibc, or a
   `/etc/resolv.conf` Android lacks, so they can't run or can't resolve DNS;
 - builds `eget` with `go install` into `~/.local/bin`, for zssh;
@@ -42,6 +45,11 @@ bundle's binaries never run on the phone. The ssh control socket lives in
 
 Log in to GitHub once (`gh auth login`) so eget downloads during bundle
 builds carry a token and avoid GitHub's rate limit.
+
+Bundles built on the phone hold only release downloads. Tools the bundle
+builds from source (`static:` and `cross:` rows: tmux, ss, ip, tc, tcpdump,
+strace, lsof, ...) need docker or zig, which Termux lacks; the build warns
+and leaves them out, and the session uses the server's own copies.
 
 ## Rust tools without a Termux package
 

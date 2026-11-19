@@ -1128,8 +1128,11 @@ test_init_keeps_and_defaults_apps_build() {
 # Termux
 # ---------------------------------------------------------------------------
 
-TERMUX_BASE="root-repo openssh python golang"
+TERMUX_BASE="openssh python golang"
+TERMUX_UPGRADE="apt-get full-upgrade -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
 CORE_TERMUX="curl git unzip zsh fzf bat eza lsd ripgrep fd git-delta zoxide atuin direnv"
+
+assert_eq_order() { [[ $1 == "$2" ]] || fail "expected order '$2', got '$1'"; }
 
 # stub_go: go that logs its arguments and GOBIN.
 stub_go() {
@@ -1149,11 +1152,22 @@ test_termux_uses_pkg_without_sudo() {
     termux
     run_apps --machine desktop
     assert_status 0
-    assert_call "pkg install -y $TERMUX_BASE"
+    assert_call "pkg install -y root-repo"
     # root-repo's packages (tcpdump, ethtool) appear after an update.
     assert_call "apt-get update"
-    assert_call_matches "^pkg install -y $CORE_TERMUX "
+    assert_call_matches "^pkg install -y $TERMUX_BASE $CORE_TERMUX "
     refute_call_matches "^sudo |^apt-get install"
+}
+
+# Termux is rolling: installing onto stale packages is a partial upgrade.
+test_termux_upgrades_before_installing() {
+    termux
+    run_apps --machine desktop
+    assert_status 0
+    assert_call "$TERMUX_UPGRADE"
+    local order
+    order="$(grep -nE '^(pkg install -y root-repo|apt-get update|apt-get full-upgrade|pkg install -y openssh)' "$STUB_LOG" | cut -d: -f2 | cut -c1-20 | tr '\n' '|')"
+    assert_eq_order "$order" "pkg install -y root-|apt-get update|apt-get full-upgrade|pkg install -y opens|"
 }
 
 test_termux_detected_from_prefix() {
@@ -1163,7 +1177,7 @@ test_termux_detected_from_prefix() {
     export PREFIX=/data/data/com.termux/files/usr
     run_apps --machine server
     assert_status 0
-    assert_call_matches "^pkg install -y $CORE_TERMUX "
+    assert_call_matches "^pkg install -y $TERMUX_BASE $CORE_TERMUX "
 }
 
 test_termux_machine_defaults_to_desktop() {

@@ -45,9 +45,10 @@
 #               Re-runs only rebuild crates with newer versions.
 #
 #   Termux (TERMUX_VERSION set, or PREFIX under com.termux) uses pkg and the
-#   manifest's termux column, without sudo. It first installs what zssh's
-#   bundle builder needs (openssh, python, golang) and root-repo, and builds
-#   eget with go: prebuilt Go and musl binaries can't resolve DNS on Android,
+#   manifest's termux column, without sudo. It adds root-repo and upgrades
+#   every package first (Termux is rolling), installs what zssh's bundle
+#   builder needs (openssh, python, golang) with the rest, and builds eget
+#   with go: prebuilt Go and musl binaries can't resolve DNS on Android,
 #   which has no /etc/resolv.conf. Rows without a Termux package are skipped,
 #   release downloads included; --build cargo builds their crate: natively
 #   with the rust package.
@@ -68,9 +69,9 @@ declare -A BUILD_DEPS=(
     [termux]="rust pkg-config"
 )
 
-# Installed first on Termux: zssh's bundle builder needs ssh, python3 (for
-# tomllib) and go (for eget); root-repo has tcpdump, ethtool and friends.
-TERMUX_BASE=(root-repo openssh python golang)
+# Installed with the manifest's packages on Termux: zssh's bundle builder
+# needs ssh, python3 (for tomllib) and go (for eget).
+TERMUX_BASE=(openssh python golang)
 
 run() {
     if [[ -n ${DRY_RUN:-} ]]; then
@@ -406,9 +407,14 @@ main() {
     fi
 
     if [[ $pm == termux ]]; then
-        run "${install[@]}" "${TERMUX_BASE[@]}" || failed+=("${TERMUX_BASE[@]}")
-        # root-repo's packages are listed only after an update.
+        # root-repo (tcpdump, ethtool) is listed only after an update. Termux
+        # is rolling: installing onto stale packages is a partial upgrade it
+        # doesn't support, so upgrade first, keeping changed config files.
+        run "${install[@]}" root-repo || failed+=(root-repo)
         run apt-get update || true
+        run apt-get full-upgrade -y -o Dpkg::Options::=--force-confdef \
+            -o Dpkg::Options::=--force-confold || echo "Warning: pkg upgrade failed." >&2
+        pkgs=("${TERMUX_BASE[@]}" "${pkgs[@]}")
     fi
 
     if [[ $pm == apt ]]; then
