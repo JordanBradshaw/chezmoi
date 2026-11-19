@@ -32,7 +32,7 @@
     stripComponents = 1
     refreshPeriod = "168h"
 {{- end }}
-{{- if eq .machine "desktop" }}
+{{- if eq (includeTemplate "kde" .) "true" }}
 
 # Fira Code with Nerd Font icons (eza/lsd, catppuccin tmux), used by the
 # yupps Konsole/Yakuake profile. Over zssh the remote side can't supply it:
@@ -43,6 +43,8 @@
     exact = true
     include = ["*.ttf"]
     refreshPeriod = "168h"
+{{- end }}
+{{- if eq .machine "desktop" }}
 
 # Portable-bundle builder; zssh runs ~/.local/share/chezmoi-deploy/portable/build.sh.
 [".local/share/chezmoi-deploy"]

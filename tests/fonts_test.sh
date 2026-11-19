@@ -23,11 +23,13 @@ teardown() {
     rm -rf "$SANDBOX"
 }
 
-# cz MACHINE ARGS...: chezmoi on the repo with machine type MACHINE.
+# cz MACHINE ARGS...: chezmoi on the repo with machine type MACHINE, and
+# kde = $CZ_KDE when that is set (else no kde key, as in older configs).
 cz() {
     local machine=$1
     shift
-    printf '[data]\n    machine = "%s"\n    hasSecrets = false\n' "$machine" >"$SANDBOX/$machine.toml"
+    printf '[data]\n    machine = "%s"\n    hasSecrets = false\n%s' "$machine" \
+        "${CZ_KDE:+    kde = $CZ_KDE$'\n'}" >"$SANDBOX/$machine.toml"
     chezmoi --source="$REPO_DIR" --config="$SANDBOX/$machine.toml" \
         --persistent-state="$SANDBOX/$machine.db" --destination="$SANDBOX/home" "$@" \
         2> >(grep -v 'config file template has changed' >&2)
@@ -88,6 +90,37 @@ test_yupps_profile_uses_firacode_nerd_font() {
 }
 
 # ---------------------------------------------------------------------------
+
+# A desktop without KDE (a phone in proot Debian) gets no KDE pieces.
+test_desktop_without_kde_gets_no_fonts() {
+    OUTPUT="$(CZ_KDE=false cz desktop managed --include=externals 2>/dev/null)"
+    grep -q 'fonts' <<<"$OUTPUT" && fail "kde=false desktop manages fonts: $OUTPUT"
+    return 0
+}
+
+test_desktop_without_kde_font_script_empty() {
+    local script="$REPO_DIR/home/.chezmoiscripts/run_onchange_after_30-fonts.sh.tmpl"
+    assert_eq "$(CZ_KDE=false cz desktop execute-template <"$script" | tr -d '[:space:]')" ""
+}
+
+test_desktop_without_kde_ignores_konsole_yakuake() {
+    local d
+    OUTPUT="$(CZ_KDE=true cz desktop managed 2>/dev/null)"
+    for d in .local/share/konsole .local/share/yakuake; do
+        grep -qx "$d" <<<"$OUTPUT" || fail "kde=true desktop lacks $d"
+    done
+    OUTPUT="$(CZ_KDE=false cz desktop managed 2>/dev/null)"
+    grep -E '^\.local/share/(konsole|yakuake)' <<<"$OUTPUT" && fail "kde=false desktop manages konsole/yakuake"
+    return 0
+}
+
+test_desktop_without_kde_profile_scripts_empty() {
+    local f
+    for f in run_onchange_after_20-kde-konsole.sh.tmpl run_onchange_after_20-kde-yakuake.sh.tmpl; do
+        [[ -z $(CZ_KDE=false cz desktop execute-template <"$REPO_DIR/home/.chezmoiscripts/$f" | tr -d '[:space:]') ]] ||
+            fail "$f not empty for kde=false"
+    done
+}
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
     run_test "$t"

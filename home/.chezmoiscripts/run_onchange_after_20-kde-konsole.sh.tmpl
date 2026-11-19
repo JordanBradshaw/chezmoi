@@ -1,4 +1,4 @@
-{{ if eq .machine "desktop" -}}
+{{ if eq (includeTemplate "kde" .) "true" -}}
 #!/usr/bin/env bash
 # configure.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/kde/konsole/configure.sh") | sha256sum }}
 exec "{{ .chezmoi.workingTree }}/scripts/kde/konsole/configure.sh"

@@ -1,4 +1,4 @@
-{{ if eq .machine "desktop" -}}
+{{ if eq (includeTemplate "kde" .) "true" -}}
 #!/usr/bin/env bash
 # Register fonts from chezmoi externals (FiraCode Nerd Font).
 # .chezmoiexternal.toml.tmpl hash: {{ include ".chezmoiexternal.toml.tmpl" | sha256sum }}

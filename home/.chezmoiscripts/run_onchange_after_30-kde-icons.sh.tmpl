@@ -1,4 +1,4 @@
-{{ if eq .machine "desktop" -}}
+{{ if eq (includeTemplate "kde" .) "true" -}}
 #!/usr/bin/env bash
 # Icon themes (candy-icons, Sweet folders); see scripts/install-icons.sh.
 # Re-run when the script changes, and weekly to pick up upstream updates.

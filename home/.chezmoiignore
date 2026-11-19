@@ -1,4 +1,4 @@
-{{ if ne .machine "desktop" }}
+{{ if ne (includeTemplate "kde" .) "true" }}
 .local/share/konsole
 .local/share/yakuake
 .local/share/icons

@@ -206,8 +206,9 @@ test_other_icon_themes_untouched() {
 # chezmoi wiring
 # ---------------------------------------------------------------------------
 
+# render MACHINE FILE [KDE]: FILE rendered for MACHINE, with kde = KDE when given.
 render() {
-    printf '[data]\n    machine = "%s"\n    hasSecrets = false\n' "$1" >"$SANDBOX/c.toml"
+    printf '[data]\n    machine = "%s"\n    hasSecrets = false\n%s' "$1" "${3:+    kde = $3$'\n'}" >"$SANDBOX/c.toml"
     chezmoi --source="$REPO_DIR" --config="$SANDBOX/c.toml" --persistent-state="$SANDBOX/s.db" \
         --destination="$HOME" execute-template <"$REPO_DIR/home/$2" 2>/dev/null
 }
@@ -232,6 +233,20 @@ test_server_script_is_empty() {
     local out
     out="$(render server .chezmoiscripts/run_onchange_after_30-kde-icons.sh.tmpl)"
     assert_eq "${out//[[:space:]]/}" ""
+}
+
+test_desktop_without_kde_icon_script_empty() {
+    local out
+    out="$(render desktop .chezmoiscripts/run_onchange_after_30-kde-icons.sh.tmpl false)"
+    assert_eq "${out//[[:space:]]/}" ""
+}
+
+test_desktop_without_kde_ignores_icons() {
+    printf '[data]\n    machine = "desktop"\n    hasSecrets = false\n    kde = false\n' >"$SANDBOX/c.toml"
+    local out
+    out="$(chezmoi --source="$REPO_DIR" --config="$SANDBOX/c.toml" --persistent-state="$SANDBOX/s.db" \
+        --destination="$HOME" execute-template <"$REPO_DIR/home/.chezmoiignore" 2>/dev/null)"
+    assert_match "$out" "\.local/share/icons"
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
