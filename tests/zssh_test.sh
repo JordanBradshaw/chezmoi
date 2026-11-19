@@ -184,6 +184,17 @@ test_zssh_installs_bundle_and_enters() {
     assert_call_matches "^ssh .*-t.* jetson "
 }
 
+# Termux has no /tmp and no XDG_RUNTIME_DIR: the control socket goes to TMPDIR.
+test_zssh_control_socket_in_tmpdir_without_runtime_dir() {
+    mkdir -p "$SANDBOX/tmp"
+    stub_remote
+    OUTPUT="$(env -u XDG_RUNTIME_DIR PATH="$STUBS:$PATH" ZSSH_BUILDER="$STUBS/build.sh" \
+        ZSSH_REMOTE_DIR="$REMOTE_HOME/.zsh-portable" TMPDIR="$SANDBOX/tmp" bash "$ZSSH" jetson 2>&1)"
+    STATUS=$?
+    assert_status 0
+    assert_call_matches "^ssh -n .*ControlPath=$SANDBOX/tmp/zssh-%C"
+}
+
 test_zssh_skips_upload_when_version_matches() {
     stub_remote
     run_zssh jetson

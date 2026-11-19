@@ -100,7 +100,7 @@ fi
 # Reuse one connection for the probe, the upload and the session.
 ssh_opts=(
     -o ControlMaster=auto
-    -o "ControlPath=${XDG_RUNTIME_DIR:-/tmp}/zssh-%C"
+    -o "ControlPath=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/zssh-%C"
     -o ControlPersist=60
 )
 
