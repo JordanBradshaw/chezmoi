@@ -101,7 +101,7 @@
   sake           desktop  -         -               -              -                -               alajmo/sake                     sake           tar.gz                                -  -
   oryx           desktop  -         -               -              -                -               pythops/oryx                    oryx*          musl                                  -  -
   act            desktop  -         -               -              -                -               nektos/act                      act            tar.gz                                -  -
-  gitleaks       desktop  -         -               -              -                -               gitleaks/gitleaks               gitleaks       tar.gz                                -  gitleaks
+  gitleaks       desktop  -         -               -              -                -               gitleaks/gitleaks               gitleaks       tar.gz                                -  -
   cloudflared    desktop  -         -               -              -                -               cloudflare/cloudflared          cloudflared*   ^fips                                 -  cloudflared
   lsnet          desktop  -         -               -              -                -               -                               -              -                                     crate:lsnet  -
   tldr           desktop  -         -               -              -                -               -                               -              -                                     pipx:tldr  -
