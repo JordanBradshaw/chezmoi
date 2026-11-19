@@ -9,11 +9,18 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bin_dir="$HOME/.local/bin"
 
 if ! command -v chezmoi >/dev/null 2>&1 && [[ ! -x $bin_dir/chezmoi ]]; then
-    echo "Installing chezmoi to $bin_dir..."
-    mkdir -p "$bin_dir"
-    if command -v curl >/dev/null 2>&1; then
+    if [[ -n ${TERMUX_VERSION:-} || ${PREFIX:-} == */com.termux/* ]]; then
+        # Termux's package is built for Android: a linux release binary
+        # can't resolve DNS there (no /etc/resolv.conf).
+        echo "Installing chezmoi with pkg..."
+        pkg install -y chezmoi
+    elif command -v curl >/dev/null 2>&1; then
+        echo "Installing chezmoi to $bin_dir..."
+        mkdir -p "$bin_dir"
         sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$bin_dir"
     elif command -v wget >/dev/null 2>&1; then
+        echo "Installing chezmoi to $bin_dir..."
+        mkdir -p "$bin_dir"
         sh -c "$(wget -qO- get.chezmoi.io)" -- -b "$bin_dir"
     else
         echo "Error: curl or wget is required to install chezmoi." >&2

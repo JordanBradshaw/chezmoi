@@ -93,6 +93,27 @@ test_helper_false_without_key() {
     assert_eq "$(helper)" "false"
 }
 
+# A get.chezmoi.io (linux) chezmoi can't resolve DNS on Android, so its
+# archive externals would fail; Termux's package is built for Android.
+test_install_sh_uses_pkg_chezmoi_on_termux() {
+    local tool log="$SANDBOX/calls.log"
+    for tool in dirname mkdir chmod; do ln -s "$(command -v "$tool")" "$STUBS/$tool"; done
+    {
+        printf '#!%s\n' "$BASH_BIN"
+        printf 'echo "pkg $*" >>"%s"\n' "$log"
+        printf 'printf "#!%s\\necho \\"chezmoi \\$*\\" >>%s\\n" >"%s"\n' "$BASH_BIN" "$log" "$STUBS/chezmoi"
+        printf 'chmod +x "%s"\n' "$STUBS/chezmoi"
+    } >"$STUBS/pkg"
+    printf '#!%s\necho "curl $*" >>"%s"\nexit 1\n' "$BASH_BIN" "$log" >"$STUBS/curl"
+    chmod +x "$STUBS/pkg" "$STUBS/curl"
+    OUTPUT="$(HOME="$SANDBOX/home" TERMUX_VERSION=0.118.1 PATH="$STUBS" "$BASH_BIN" "$REPO_DIR/install.sh" 2>&1)"
+    local calls
+    calls="$(cat "$log" 2>/dev/null)"
+    assert_line "$calls" "pkg install -y chezmoi"
+    ! grep -q '^curl' <<<"$calls" || fail "fetched get.chezmoi.io: $calls"
+    assert_line "$calls" "chezmoi apply"
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
     run_test "$t"
 done
