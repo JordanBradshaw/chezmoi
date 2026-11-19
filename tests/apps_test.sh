@@ -67,6 +67,27 @@ test_header_must_name_every_column() {
     assert_match "$OUTPUT" 'header'
 }
 
+# termux is optional: older manifests (and chezmoi-deploy fixtures) lack it.
+test_termux_column_defaults_to_none() {
+    printf '%s\n%s\n' "$HEADER" "$RG_ROW" >"$SANDBOX/a.tsv"
+    al "apps_load '$SANDBOX/a.tsv' && app rg termux"
+    assert_eq "$STATUS" 0
+    assert_eq "$OUTPUT" "-"
+}
+
+test_termux_column_read_when_present() {
+    printf '%s termux\n%s ripgrep\n' "$HEADER" "$RG_ROW" >"$SANDBOX/a.tsv"
+    al "apps_load '$SANDBOX/a.tsv' && app rg termux"
+    assert_eq "$OUTPUT" "ripgrep"
+}
+
+test_real_manifest_termux_names() {
+    real 'for n in zsh rg fd delta dust nu tmux gh lazygit; do printf "%s=%s " "$n" "$(app "$n" termux)"; done'
+    assert_eq "$OUTPUT" "zsh=zsh rg=ripgrep fd=fd delta=git-delta dust=dust nu=nushell tmux=tmux gh=gh lazygit=lazygit "
+    real 'printf "%s " "$(app firacode termux)" "$(app btm termux)"'
+    assert_eq "$OUTPUT" "- - "
+}
+
 test_short_row_names_line() {
     printf '%s\n\n%s\n' "$HEADER" 'rg core zssh a b c d e f g' >"$SANDBOX/a.tsv"
     al "apps_load '$SANDBOX/a.tsv'"

@@ -3,6 +3,8 @@
 # and the GitHub token. Bash and coreutils only; sets no shell options.
 
 APPS_COLUMNS=(name tier portable apt pacman dnf brew release file assets build)
+# Optional columns: "-" when the header lacks them.
+APPS_OPTIONAL_COLUMNS=(termux)
 APPS_FILE="${APPS_FILE:-$(dirname "${BASH_SOURCE[0]}")/apps.tsv}"
 declare -ga APPS_NAMES=()
 declare -gA APP=()
@@ -54,6 +56,13 @@ apps_load() {
         APPS_NAMES+=("$f")
         for c in "${APPS_COLUMNS[@]}"; do
             APP[$f,$c]=${fields[${idx[$c]}]}
+        done
+        for c in "${APPS_OPTIONAL_COLUMNS[@]}"; do
+            if [[ -v idx[$c] ]]; then
+                APP[$f,$c]=${fields[${idx[$c]}]}
+            else
+                APP[$f,$c]=-
+            fi
         done
     done <"$file"
     if ((!hdr)); then

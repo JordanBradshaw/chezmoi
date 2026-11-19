@@ -37,99 +37,104 @@
 #            `pipx install SPEC`; the pipx row is installed with the packages.
 #            A crate: build with no package or release (lsnet) is installed
 #            only with --build cargo.
+#   termux   Termux package (pkg); optional column, "-" = not packaged. On
+#            Termux a row without one is skipped: release binaries need glibc,
+#            or a /etc/resolv.conf Android lacks. With --build cargo its
+#            crate: build is made natively. tcpdump, ethtool, btop, nethogs
+#            and below come from Termux's root-repo.
 #
 # Static musl builds come first so binaries run on older glibc (JetPack 4 is
 # Ubuntu 18.04). A tool with no build for an arch is skipped with a warning.
-# name           tier     portable  apt             pacman         dnf              brew            release                         file           assets                                build
-  curl           core     -         curl            curl           curl             curl            -                               -              -                                     -
-  git            core     -         git             git            git              git             -                               -              -                                     -
-  unzip          core     -         unzip           unzip          unzip            unzip           -                               -              -                                     -
-  zsh            core     -         zsh             zsh            zsh              zsh             -                               -              -                                     -
-  fzf            core     zssh,dev  fzf             fzf            fzf              fzf             junegunn/fzf                    fzf            tar.gz                                go:github.com/junegunn/fzf
-  bat            core     zssh,dev  bat             bat            bat              bat             sharkdp/bat                     bat            musl|gnu                              crate:bat
-  eza            core     zssh,dev  eza             eza            eza              eza             eza-community/eza               eza            musl,tar.gz|gnu,tar.gz,^no_libgit     crate:eza
-  lsd            core     zssh,dev  lsd             lsd            lsd              lsd             lsd-rs/lsd                      lsd            musl|gnu                              crate:lsd
-  rg             core     zssh,dev  ripgrep         ripgrep        ripgrep          ripgrep         BurntSushi/ripgrep              rg             musl|gnu                              crate:ripgrep:rg
-  fd             core     zssh,dev  fd-find         fd             fd-find          fd              sharkdp/fd                      fd             musl|gnu                              crate:fd-find:fd
-  delta          core     zssh,dev  git-delta       git-delta      git-delta        git-delta       dandavison/delta                delta          musl|gnu                              crate:git-delta:delta
-  zoxide         core     zssh,dev  zoxide          zoxide         zoxide           zoxide          ajeetdsouza/zoxide              zoxide         musl                                  crate:zoxide
-  atuin          core     zssh,dev  atuin           atuin          atuin            atuin           atuinsh/atuin                   atuin          musl,^server|gnu,^server              -
-  direnv         core     zssh,dev  direnv          direnv         direnv           direnv          direnv/direnv                   direnv         -                                     go:github.com/direnv/direnv/v2
-  miller         extra    -         miller          miller         miller           miller          -                               -              -                                     -
-  nu             extra    -         -               nushell        -                nushell         nushell/nushell                 nu             musl                                  crate:nu
-  gh             extra    -         gh              github-cli     gh               gh              -                               -              -                                     -
-  tspin          extra    zssh,dev  tailspin        tailspin       tailspin         tailspin        bensadeh/tailspin               tspin          musl|gnu                              crate:tailspin:tspin
-  procs          extra    zssh,dev  procs           procs          procs            procs           dalance/procs                   procs          zip                                   crate:procs
-  duf            extra    zssh,dev  duf             duf            duf              duf             muesli/duf                      duf            tar.gz                                go:github.com/muesli/duf
-  dust           extra    zssh,dev  du-dust         dust           du-dust          dust            bootandy/dust                   dust           musl|gnu                              crate:du-dust:dust
-  btm            extra    zssh,dev  btm             bottom         bottom           bottom          ClementTsang/bottom             btm            musl,tar.gz|gnu,tar.gz                crate:bottom:btm
-  htop           extra    -         htop            htop           htop             htop            -                               -              -                                     -
-  ss             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ss
-  nstat          extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:nstat
-  ip             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ip
-  tc             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:tc
-  tcpdump        extra    zssh,dev  tcpdump         tcpdump        tcpdump          tcpdump         -                               -              -                                     static:tcpdump
-  ethtool        extra    zssh,dev  ethtool         ethtool        ethtool          -               -                               -              -                                     static:ethtool
-  strace         extra    zssh,dev  strace          strace         strace           -               -                               -              -                                     static:strace
-  iperf3         extra    zssh,dev  iperf3          iperf3         iperf3           iperf3          -                               -              -                                     static:iperf3
-  socat          extra    zssh,dev  socat           socat          socat            socat           -                               -              -                                     static:socat
-  lsof           extra    zssh,dev  lsof            lsof           lsof             lsof            -                               -              -                                     static:lsof
-  tmux           extra    zssh      tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux
-  starship       extra    -         starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship
-  micro          extra    -         micro           micro          micro            micro           -                               -              -                                     -
-  neovim         extra    -         neovim          neovim         neovim           neovim          -                               -              -                                     -
-  most           extra    -         most            most           most             most            -                               -              -                                     -
-  xfr            extra    zssh,dev  -               -              -                -               lance0/xfr                      xfr            musl|gnu                              crate:xfr
-  snitch         extra    zssh,dev  -               -              -                -               karol-broda/snitch              snitch         tar.gz                                go:github.com/karol-broda/snitch
-  usbtree        extra    zssh,dev  -               -              -                -               gnomeria/usbtree                usbtree        tar.gz                                -
-  rustscan       extra    -         -               rustscan       -                rustscan        bee-san/RustScan                rustscan       x86-linux                             crate:rustscan
-  firacode       desktop  -         fonts-firacode  ttf-fira-code  fira-code-fonts  font-fira-code  -                               -              -                                     -
-  pipx           desktop  -         pipx            python-pipx    pipx             pipx            -                               -              -                                     -
-  prettyping     desktop  -         prettyping      prettyping     -                prettyping      -                               -              -                                     -
-  systemd-manager-tui  desktop  -   -               -              -                -               matheus-git/systemd-manager-tui systemd-manager-tui*  -                              -
-  tori           desktop  -         -               -              -                -               thobiasn/tori-cli               tori*          -                                     -
-  lazygit        desktop  -         -               -              -                -               jesseduffield/lazygit           lazygit        tar.gz                                -
-  lazyrsync      desktop  -         -               -              -                -               westpoint-io/lazyrsync          lazyrsync      musl|gnu                              -
-  nerdlog        desktop  -         -               -              -                -               dimonomid/nerdlog               nerdlog        tar.gz                                -
-  depot          desktop  -         -               -              -                -               depot/cli                       bin/depot      tar.gz                                -
-  envx           desktop  -         -               -              -                -               mikeleppane/envx                envx*          static|-                              -
-  sake           desktop  -         -               -              -                -               alajmo/sake                     sake           tar.gz                                -
-  oryx           desktop  -         -               -              -                -               pythops/oryx                    oryx*          musl                                  -
-  act            desktop  -         -               -              -                -               nektos/act                      act            tar.gz                                -
-  gitleaks       desktop  -         -               -              -                -               gitleaks/gitleaks               gitleaks       tar.gz                                -
-  cloudflared    desktop  -         -               -              -                -               cloudflare/cloudflared          cloudflared*   ^fips                                 -
-  lsnet          desktop  -         -               -              -                -               -                               -              -                                     crate:lsnet
-  tldr           desktop  -         -               -              -                -               -                               -              -                                     pipx:tldr
-  xxh            desktop  -         -               -              -                -               -                               -              -                                     pipx:xxh-xxh
-  jtui           desktop  -         -               -              -                -               -                               -              -                                     pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui
-  tuistore       desktop  -         -               -              -                -               -                               -              -                                     pipx:git+https://github.com/Gheat1/tuistore
-  lazydocker     desktop  zssh,dev  -               -              -                -               jesseduffield/lazydocker        lazydocker     tar.gz|x86_64,tar.gz                  go:github.com/jesseduffield/lazydocker
-  lazyjournal    desktop  zssh,dev  -               -              -                -               Lifailon/lazyjournal            lazyjournal    -                                     go:github.com/Lifailon/lazyjournal
-  bandwhich      desktop  zssh,dev  -               -              -                -               imsnif/bandwhich                bandwhich      musl|gnu                              crate:bandwhich
-  diskwatch      desktop  zssh,dev  -               -              -                -               matthart1983/diskwatch          diskwatch*     static|-                              crate:diskwatch
-  lsoff          desktop  zssh,dev  -               -              -                -               yutat23/lsoff                   lsoff          -                                     go:github.com/yutat23/lsoff
-  systeroid      desktop  zssh,dev  -               -              -                -               orhun/systeroid                 systeroid      musl,^all-features|gnu,^all-features  crate:systeroid
-  systeroid-tui  desktop  zssh,dev  -               -              -                -               orhun/systeroid                 systeroid-tui  musl,^all-features|gnu,^all-features  crate:systeroid-tui
-  systemctl-tui  desktop  zssh,dev  -               -              -                -               rgwood/systemctl-tui            systemctl-tui  musl|gnu                              crate:systemctl-tui
-  rustnet        desktop  zssh,dev  -               -              -                -               domcyrus/rustnet                rustnet        musl|gnu                              -
-  trip           desktop  zssh,dev  -               -              -                -               fujiapple852/trippy             trip           musl|gnu                              crate:trippy:trip
-  gping          desktop  zssh,dev  -               -              -                -               orf/gping                       gping          musl|gnu|-                            crate:gping
-  tracexec       desktop  zssh,dev  -               -              -                -               kxxt/tracexec                   tracexec       static|-                              -
-  cyme           desktop  zssh,dev  -               -              -                -               tuna-f1sh/cyme                  cyme           musl|gnu                              -
-  viddy          desktop  zssh,dev  -               -              -                -               sachaos/viddy                   viddy          tar.gz                                crate:viddy
-  lnav           desktop  zssh,dev  -               -              -                -               tstack/lnav                     lnav           musl                                  -
-  zellij         -        zssh,dev  -               -              -                -               zellij-org/zellij               zellij         musl,^no-web|musl                     -
-  ctop           desktop  zssh,dev  -               -              -                -               bcicen/ctop                     ctop*          -                                     -
-  dive           desktop  zssh,dev  -               -              -                -               wagoodman/dive                  dive           tar.gz                                go:github.com/wagoodman/dive
-  comchan        -        zssh,dev  -               -              -                -               Vaishnav-Sabari-Girish/ComChan  comchan        musl|gnu                              -
-  binsider       -        zssh,dev  -               -              -                -               orhun/binsider                  binsider       musl|gnu                              crate:binsider
-  pueue          -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueue*         pueue-                                crate:pueue
-  pueued         -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueued*        pueued                                crate:pueue:pueued
-  pwru           -        zssh      -               -              -                -               cilium/pwru                     pwru           tar.gz                                -
-  bpftrace       -        zssh      bpftrace        bpftrace       bpftrace         -               bpftrace/bpftrace               bpftrace*      x86_64,^bundle|aarch64,^bundle        -
-  btop           -        zssh      btop            btop           btop             btop            aristocratos/btop               ./btop/bin/btop  musl                                -
-  sysdig         -        zssh      sysdig          sysdig         sysdig           -               draios/sysdig                   sysdig-*/usr/bin/sysdig  x86_64,tar.gz|aarch64,tar.gz  -
-  csysdig        -        zssh      -               -              -                -               draios/sysdig                   sysdig-*/usr/bin/csysdig  x86_64,tar.gz|aarch64,tar.gz  -
-  nethogs        -        zssh      nethogs         nethogs        nethogs          nethogs         -                               -              -                                     static:nethogs
-  iftop          -        zssh      iftop           iftop          iftop            iftop           -                               -              -                                     static:iftop
-  below          -        zssh      -               -              below            -               -                               -              -                                     static:below
+# name           tier     portable  apt             pacman         dnf              brew            release                         file           assets                                build  termux
+  curl           core     -         curl            curl           curl             curl            -                               -              -                                     -  curl
+  git            core     -         git             git            git              git             -                               -              -                                     -  git
+  unzip          core     -         unzip           unzip          unzip            unzip           -                               -              -                                     -  unzip
+  zsh            core     -         zsh             zsh            zsh              zsh             -                               -              -                                     -  zsh
+  fzf            core     zssh,dev  fzf             fzf            fzf              fzf             junegunn/fzf                    fzf            tar.gz                                go:github.com/junegunn/fzf  fzf
+  bat            core     zssh,dev  bat             bat            bat              bat             sharkdp/bat                     bat            musl|gnu                              crate:bat  bat
+  eza            core     zssh,dev  eza             eza            eza              eza             eza-community/eza               eza            musl,tar.gz|gnu,tar.gz,^no_libgit     crate:eza  eza
+  lsd            core     zssh,dev  lsd             lsd            lsd              lsd             lsd-rs/lsd                      lsd            musl|gnu                              crate:lsd  lsd
+  rg             core     zssh,dev  ripgrep         ripgrep        ripgrep          ripgrep         BurntSushi/ripgrep              rg             musl|gnu                              crate:ripgrep:rg  ripgrep
+  fd             core     zssh,dev  fd-find         fd             fd-find          fd              sharkdp/fd                      fd             musl|gnu                              crate:fd-find:fd  fd
+  delta          core     zssh,dev  git-delta       git-delta      git-delta        git-delta       dandavison/delta                delta          musl|gnu                              crate:git-delta:delta  git-delta
+  zoxide         core     zssh,dev  zoxide          zoxide         zoxide           zoxide          ajeetdsouza/zoxide              zoxide         musl                                  crate:zoxide  zoxide
+  atuin          core     zssh,dev  atuin           atuin          atuin            atuin           atuinsh/atuin                   atuin          musl,^server|gnu,^server              -  atuin
+  direnv         core     zssh,dev  direnv          direnv         direnv           direnv          direnv/direnv                   direnv         -                                     go:github.com/direnv/direnv/v2  direnv
+  miller         extra    -         miller          miller         miller           miller          -                               -              -                                     -  miller
+  nu             extra    -         -               nushell        -                nushell         nushell/nushell                 nu             musl                                  crate:nu  nushell
+  gh             extra    -         gh              github-cli     gh               gh              -                               -              -                                     -  gh
+  tspin          extra    zssh,dev  tailspin        tailspin       tailspin         tailspin        bensadeh/tailspin               tspin          musl|gnu                              crate:tailspin:tspin  -
+  procs          extra    zssh,dev  procs           procs          procs            procs           dalance/procs                   procs          zip                                   crate:procs  procs
+  duf            extra    zssh,dev  duf             duf            duf              duf             muesli/duf                      duf            tar.gz                                go:github.com/muesli/duf  duf
+  dust           extra    zssh,dev  du-dust         dust           du-dust          dust            bootandy/dust                   dust           musl|gnu                              crate:du-dust:dust  dust
+  btm            extra    zssh,dev  btm             bottom         bottom           bottom          ClementTsang/bottom             btm            musl,tar.gz|gnu,tar.gz                crate:bottom:btm  -
+  htop           extra    -         htop            htop           htop             htop            -                               -              -                                     -  htop
+  ss             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ss  iproute2
+  nstat          extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:nstat  iproute2
+  ip             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:ip  iproute2
+  tc             extra    zssh,dev  iproute2        iproute2       iproute          -               -                               -              -                                     static:tc  iproute2
+  tcpdump        extra    zssh,dev  tcpdump         tcpdump        tcpdump          tcpdump         -                               -              -                                     static:tcpdump  tcpdump
+  ethtool        extra    zssh,dev  ethtool         ethtool        ethtool          -               -                               -              -                                     static:ethtool  ethtool
+  strace         extra    zssh,dev  strace          strace         strace           -               -                               -              -                                     static:strace  strace
+  iperf3         extra    zssh,dev  iperf3          iperf3         iperf3           iperf3          -                               -              -                                     static:iperf3  iperf3
+  socat          extra    zssh,dev  socat           socat          socat            socat           -                               -              -                                     static:socat  socat
+  lsof           extra    zssh,dev  lsof            lsof           lsof             lsof            -                               -              -                                     static:lsof  lsof
+  tmux           extra    zssh      tmux            tmux           tmux             tmux            -                               tmux           -                                     cross:tmux  tmux
+  starship       extra    -         starship        starship       starship         starship        starship/starship               starship       musl.tar.gz,^sha256                   crate:starship  starship
+  micro          extra    -         micro           micro          micro            micro           -                               -              -                                     -  micro
+  neovim         extra    -         neovim          neovim         neovim           neovim          -                               -              -                                     -  neovim
+  most           extra    -         most            most           most             most            -                               -              -                                     -  most
+  xfr            extra    zssh,dev  -               -              -                -               lance0/xfr                      xfr            musl|gnu                              crate:xfr  -
+  snitch         extra    zssh,dev  -               -              -                -               karol-broda/snitch              snitch         tar.gz                                go:github.com/karol-broda/snitch  -
+  usbtree        extra    zssh,dev  -               -              -                -               gnomeria/usbtree                usbtree        tar.gz                                -  -
+  rustscan       extra    -         -               rustscan       -                rustscan        bee-san/RustScan                rustscan       x86-linux                             crate:rustscan  rustscan
+  firacode       desktop  -         fonts-firacode  ttf-fira-code  fira-code-fonts  font-fira-code  -                               -              -                                     -  -
+  pipx           desktop  -         pipx            python-pipx    pipx             pipx            -                               -              -                                     -  -
+  prettyping     desktop  -         prettyping      prettyping     -                prettyping      -                               -              -                                     -  -
+  systemd-manager-tui  desktop  -   -               -              -                -               matheus-git/systemd-manager-tui systemd-manager-tui*  -                              -  -
+  tori           desktop  -         -               -              -                -               thobiasn/tori-cli               tori*          -                                     -  -
+  lazygit        desktop  -         -               -              -                -               jesseduffield/lazygit           lazygit        tar.gz                                -  lazygit
+  lazyrsync      desktop  -         -               -              -                -               westpoint-io/lazyrsync          lazyrsync      musl|gnu                              -  -
+  nerdlog        desktop  -         -               -              -                -               dimonomid/nerdlog               nerdlog        tar.gz                                -  -
+  depot          desktop  -         -               -              -                -               depot/cli                       bin/depot      tar.gz                                -  -
+  envx           desktop  -         -               -              -                -               mikeleppane/envx                envx*          static|-                              -  -
+  sake           desktop  -         -               -              -                -               alajmo/sake                     sake           tar.gz                                -  -
+  oryx           desktop  -         -               -              -                -               pythops/oryx                    oryx*          musl                                  -  -
+  act            desktop  -         -               -              -                -               nektos/act                      act            tar.gz                                -  -
+  gitleaks       desktop  -         -               -              -                -               gitleaks/gitleaks               gitleaks       tar.gz                                -  gitleaks
+  cloudflared    desktop  -         -               -              -                -               cloudflare/cloudflared          cloudflared*   ^fips                                 -  cloudflared
+  lsnet          desktop  -         -               -              -                -               -                               -              -                                     crate:lsnet  -
+  tldr           desktop  -         -               -              -                -               -                               -              -                                     pipx:tldr  -
+  xxh            desktop  -         -               -              -                -               -                               -              -                                     pipx:xxh-xxh  -
+  jtui           desktop  -         -               -              -                -               -                               -              -                                     pipx:git+https://github.com/runpantheon/ltui#subdirectory=jtui  -
+  tuistore       desktop  -         -               -              -                -               -                               -              -                                     pipx:git+https://github.com/Gheat1/tuistore  -
+  lazydocker     desktop  zssh,dev  -               -              -                -               jesseduffield/lazydocker        lazydocker     tar.gz|x86_64,tar.gz                  go:github.com/jesseduffield/lazydocker  -
+  lazyjournal    desktop  zssh,dev  -               -              -                -               Lifailon/lazyjournal            lazyjournal    -                                     go:github.com/Lifailon/lazyjournal  -
+  bandwhich      desktop  zssh,dev  -               -              -                -               imsnif/bandwhich                bandwhich      musl|gnu                              crate:bandwhich  -
+  diskwatch      desktop  zssh,dev  -               -              -                -               matthart1983/diskwatch          diskwatch*     static|-                              crate:diskwatch  -
+  lsoff          desktop  zssh,dev  -               -              -                -               yutat23/lsoff                   lsoff          -                                     go:github.com/yutat23/lsoff  -
+  systeroid      desktop  zssh,dev  -               -              -                -               orhun/systeroid                 systeroid      musl,^all-features|gnu,^all-features  crate:systeroid  -
+  systeroid-tui  desktop  zssh,dev  -               -              -                -               orhun/systeroid                 systeroid-tui  musl,^all-features|gnu,^all-features  crate:systeroid-tui  -
+  systemctl-tui  desktop  zssh,dev  -               -              -                -               rgwood/systemctl-tui            systemctl-tui  musl|gnu                              crate:systemctl-tui  -
+  rustnet        desktop  zssh,dev  -               -              -                -               domcyrus/rustnet                rustnet        musl|gnu                              -  -
+  trip           desktop  zssh,dev  -               -              -                -               fujiapple852/trippy             trip           musl|gnu                              crate:trippy:trip  -
+  gping          desktop  zssh,dev  -               -              -                -               orf/gping                       gping          musl|gnu|-                            crate:gping  gping
+  tracexec       desktop  zssh,dev  -               -              -                -               kxxt/tracexec                   tracexec       static|-                              -  -
+  cyme           desktop  zssh,dev  -               -              -                -               tuna-f1sh/cyme                  cyme           musl|gnu                              -  -
+  viddy          desktop  zssh,dev  -               -              -                -               sachaos/viddy                   viddy          tar.gz                                crate:viddy  viddy
+  lnav           desktop  zssh,dev  -               -              -                -               tstack/lnav                     lnav           musl                                  -  lnav
+  zellij         -        zssh,dev  -               -              -                -               zellij-org/zellij               zellij         musl,^no-web|musl                     -  zellij
+  ctop           desktop  zssh,dev  -               -              -                -               bcicen/ctop                     ctop*          -                                     -  -
+  dive           desktop  zssh,dev  -               -              -                -               wagoodman/dive                  dive           tar.gz                                go:github.com/wagoodman/dive  -
+  comchan        -        zssh,dev  -               -              -                -               Vaishnav-Sabari-Girish/ComChan  comchan        musl|gnu                              -  -
+  binsider       -        zssh,dev  -               -              -                -               orhun/binsider                  binsider       musl|gnu                              crate:binsider  -
+  pueue          -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueue*         pueue-                                crate:pueue  pueue
+  pueued         -        zssh,dev  -               -              -                -               Nukesor/pueue                   pueued*        pueued                                crate:pueue:pueued  -
+  pwru           -        zssh      -               -              -                -               cilium/pwru                     pwru           tar.gz                                -  -
+  bpftrace       -        zssh      bpftrace        bpftrace       bpftrace         -               bpftrace/bpftrace               bpftrace*      x86_64,^bundle|aarch64,^bundle        -  -
+  btop           -        zssh      btop            btop           btop             btop            aristocratos/btop               ./btop/bin/btop  musl                                -  btop
+  sysdig         -        zssh      sysdig          sysdig         sysdig           -               draios/sysdig                   sysdig-*/usr/bin/sysdig  x86_64,tar.gz|aarch64,tar.gz  -  -
+  csysdig        -        zssh      -               -              -                -               draios/sysdig                   sysdig-*/usr/bin/csysdig  x86_64,tar.gz|aarch64,tar.gz  -  -
+  nethogs        -        zssh      nethogs         nethogs        nethogs          nethogs         -                               -              -                                     static:nethogs  nethogs
+  iftop          -        zssh      iftop           iftop          iftop            iftop           -                               -              -                                     static:iftop  -
+  below          -        zssh      -               -              below            -               -                               -              -                                     static:below  below
