@@ -20,6 +20,7 @@ jobs:
           - tests/history_merge_test.sh
           - tests/icons_test.sh
           - tests/install_apps_test.sh
+          - tests/kde_test.sh
           - tests/login_shell_test.sh
           - tests/tmux_test.sh
           - tests/zsh_startup_test.sh

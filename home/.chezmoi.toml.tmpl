@@ -13,6 +13,20 @@
 {{-   $machine = "server" -}}
 {{- end -}}
 
+{{- /* KDE Plasma: gates the Konsole/Yakuake profiles, icons, latte, gestures
+       and fonts (read them through includeTemplate "kde"). A desktop without
+       plasmashell, such as a phone running proot Debian, is asked once. */ -}}
+{{- $kde := false -}}
+{{- if hasKey . "kde" -}}
+{{-   $kde = .kde -}}
+{{- else if eq $machine "desktop" -}}
+{{-   if lookPath "plasmashell" -}}
+{{-     $kde = true -}}
+{{-   else if stdinIsATTY -}}
+{{-     $kde = promptBoolOnce . "kde" "Is this machine using KDE" false -}}
+{{-   end -}}
+{{- end -}}
+
 {{- $identity := joinPath .chezmoi.homeDir ".config/chezmoi/key.txt" -}}
 {{- $hasSecrets := and (ne $machine "container") (stat $identity | not | not) -}}
 
@@ -38,6 +52,7 @@ encryption = "age"
 
 [data]
     machine = {{ $machine | quote }}
+    kde = {{ $kde }}
     hasSecrets = {{ $hasSecrets }}
     appsBuild = {{ $appsBuild | quote }}
 

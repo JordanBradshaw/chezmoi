@@ -1,0 +1,3 @@
+{{- /* "true" when this machine runs KDE Plasma. Configs saved before the kde
+       key existed fall back to the machine type. */ -}}
+{{- if hasKey . "kde" }}{{ .kde }}{{ else }}{{ eq .machine "desktop" }}{{ end -}}
