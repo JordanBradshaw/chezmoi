@@ -213,47 +213,84 @@ test_compdump_has_fixed_name_in_cache_dir() {
     assert_eq "$OUTPUT" "$HOME_DIR/.cache/zsh|$HOME_DIR/.cache/zsh/zcompdump-$(zsh -fc 'print $ZSH_VERSION')"
 }
 
-# Toolchain bin dirs go after ~/.local/bin and before the system dirs.
-test_toolchain_bins_on_path_in_order() {
-    apply_zsh
-    local h=$HOME_DIR
-    mkdir -p "$h/.local/share/pnpm/bin" "$h/.cargo/bin" "$h/go/bin"
-    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}|$PNPM_HOME"')"
-    assert_eq "$OUTPUT" "$h/.local/bin:$h/.local/share/pnpm/bin:$h/.cargo/bin:$h/go/bin:/usr/bin:/bin|$h/.local/share/pnpm"
+# stub_yupps_env [ROOT]: a plugin checkout under ROOT (default the sandbox
+# ZDOTDIR) with a zshenv.d; prints its path.
+stub_yupps_env() {
+    local d="${1:-$HOME_DIR/$ZDOT}/plugins/yupps-zsh/zshenv.d"
+    mkdir -p "$d"
+    printf '%s\n' "$d"
 }
 
-# Servers and containers without the toolchains keep a clean PATH.
-test_missing_toolchain_dirs_are_skipped() {
+# The plugin's zshenv.d runs after 00-base (XDG set) and before local snippets.
+test_yupps_zshenv_d_loads_after_base_before_local() {
     apply_zsh
-    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}|${+PNPM_HOME}"')"
-    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:/usr/bin:/bin|0"
+    local d
+    d="$(stub_yupps_env)"
+    printf 'print -r plugin:$XDG_BIN_HOME\n' >"$d/10-x.zsh"
+    printf 'print -r skipped\n' >"$d/~20-off.zsh"
+    printf 'print -r local\n' >"$HOME_DIR/$ZDOT/zshenv.d/50-local.zsh"
+    OUTPUT="$(run_zsh '')"
+    assert_eq "$OUTPUT" "plugin:$HOME_DIR/.local/bin
+local"
 }
 
-test_toolchain_home_overrides_are_used() {
+# Before the first clone there is no plugin: no output, no errors, clean PATH.
+test_missing_yupps_keeps_zshenv_quiet() {
     apply_zsh
-    local s=$SANDBOX
-    mkdir -p "$s/pnpm/bin" "$s/cargo/bin" "$s/gopath/bin" "$s/gobin" "$HOME_DIR/go/bin"
-    OUTPUT="$(env -i HOME="$HOME_DIR" PATH=/usr/bin:/bin PNPM_HOME="$s/pnpm" CARGO_HOME="$s/cargo" \
-        GOPATH="$s/gopath:$s/other" zsh -fc 'source $HOME/.zshenv; print -r -- "${(j.:.)path}"')"
-    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:$s/pnpm/bin:$s/cargo/bin:$s/gopath/bin:/usr/bin:/bin"
-    OUTPUT="$(env -i HOME="$HOME_DIR" PATH=/usr/bin:/bin GOBIN="$s/gobin" \
-        zsh -fc 'source $HOME/.zshenv; print -r -- "${(j.:.)path}"')"
-    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:$s/gobin:/usr/bin:/bin"
+    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}"' 2>&1)"
+    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:/usr/bin:/bin"
 }
 
-test_nested_shell_does_not_duplicate_toolchain_bins() {
+# A checkout from before the plugin had zshenv.d loads nothing.
+test_old_yupps_layout_keeps_zshenv_quiet() {
     apply_zsh
-    mkdir -p "$HOME_DIR/.cargo/bin" "$HOME_DIR/go/bin"
+    mkdir -p "$HOME_DIR/$ZDOT/plugins/yupps-zsh/conf.d"
+    printf 'print -r conf\n' >"$HOME_DIR/$ZDOT/plugins/yupps-zsh/conf.d/10-x.zsh"
+    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}"' 2>&1)"
+    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:/usr/bin:/bin"
+}
+
+# zssh: the bundle's plugin copy is used, not the host's.
+test_yupps_zshenv_d_from_bundle_under_zssh() {
+    apply_zsh
+    local bundle="$SANDBOX/bundle" d
+    mkdir -p "$bundle/zsh"
+    cp -a "$HOME_DIR/$ZDOT/zshenv.d" "$bundle/zsh/"
+    d="$(stub_yupps_env "$bundle/zsh")"
+    printf 'print -r bundle-plugin\n' >"$d/10-x.zsh"
+    d="$(stub_yupps_env)"
+    printf 'print -r host-plugin\n' >"$d/10-x.zsh"
+    OUTPUT="$(env -i HOME="$HOME_DIR" PATH=/usr/bin:/bin XDG_CONFIG_HOME="$bundle" \
+        zsh -fc 'source $HOME/.zshenv; print -r -- $YUPPS_DIR' 2>&1)"
+    assert_eq "$OUTPUT" "bundle-plugin
+$bundle/zsh/plugins/yupps-zsh"
+}
+
+# The real plugin's toolchains file puts existing bin dirs on PATH, once.
+test_real_yupps_toolchains_reach_path() {
+    local src
+    for src in /tmp/opencode/yupps-layout/zshenv.d "$HOME/.config/zsh/plugins/yupps-zsh/zshenv.d"; do
+        [[ -f $src/10-toolchains.zsh ]] && break
+        src=""
+    done
+    [[ -n $src ]] || { echo "  skip $CURRENT: no plugin zshenv.d"; return 0; }
+    apply_zsh
+    local d
+    d="$(stub_yupps_env)"
+    cp "$src"/*.zsh "$d/"
+    mkdir -p "$HOME_DIR/.cargo/bin"
     OUTPUT="$(run_zsh 'zsh -fc "source \$HOME/.zshenv; print -r -- \${(j.:.)path}"')"
-    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:$HOME_DIR/go/bin:/usr/bin:/bin"
+    assert_eq "$OUTPUT" "$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:/usr/bin:/bin"
 }
 
-# CPU-tuned tools copied in by hand (Termux) win over everything else.
-test_tuned_bin_first_on_path_when_present() {
+# The toolchains snippet moved to the plugin; apply removes the old copy.
+test_moved_toolchains_file_is_removed() {
+    mkdir -p "$HOME_DIR/$ZDOT/zshenv.d"
+    printf 'print -r old\n' >"$HOME_DIR/$ZDOT/zshenv.d/10-toolchains.zsh"
     apply_zsh
-    mkdir -p "$HOME_DIR/.local/tuned/bin" "$HOME_DIR/.cargo/bin"
-    OUTPUT="$(run_zsh 'print -r -- "${(j.:.)path}"')"
-    assert_eq "$OUTPUT" "$HOME_DIR/.local/tuned/bin:$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:/usr/bin:/bin"
+    [[ -e $HOME_DIR/$ZDOT/zshenv.d/10-toolchains.zsh ]] && fail "old toolchains file kept"
+    [[ -f $HOME_DIR/$ZDOT/zshenv.d/10-yupps.zsh ]] || fail "10-yupps.zsh not deployed"
+    return 0
 }
 
 test_zshenv_keeps_inherited_dirs_as_zssh_sets_them() {

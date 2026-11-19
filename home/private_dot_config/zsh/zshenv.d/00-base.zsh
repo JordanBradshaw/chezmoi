@@ -59,3 +59,8 @@ ZSH_COMPDUMP="${ZSH_COMPDUMP:-$ZSH_CACHE_DIR/zcompdump-$ZSH_VERSION}"
 # Keep the search paths unique so nested shells don't keep prepending.
 typeset -gU path cdpath fpath manpath
 path=("$XDG_BIN_HOME" $path)
+
+# The yupps-zsh plugin checkout. zshenv.d/10-yupps sources its zshenv.d and
+# zshrc.d/71-custom-plugin clones and loads it. Override it in the environment
+# or an unmanaged zshenv.d/05-local.zsh.
+: ${YUPPS_DIR:=$ZDOTDIR/plugins/yupps-zsh}

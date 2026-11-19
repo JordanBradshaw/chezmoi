@@ -1,8 +1,9 @@
 # Personal plugin and theme. Cloned on first start (or over a copy without
 # .git), fast-forwarded in the background on later starts, then sourced. Not
 # bundled by antidote: it loads its conf.d/ itself, so updates need no
-# rebundle. Set YUPPS_REPO or YUPPS_DIR earlier (e.g. zshrc.d/50-local.zsh)
-# for a fork or an ssh URL.
+# rebundle. Set YUPPS_REPO earlier (e.g. zshrc.d/50-local.zsh) for a fork or
+# an ssh URL. YUPPS_DIR is used by zshenv.d/10-yupps too, so override it in
+# the environment or an unmanaged zshenv.d/05-local.zsh.
 : ${YUPPS_REPO:=https://github.com/JordanBradshaw/yupps-zsh.git}
 : ${YUPPS_DIR:=$ZDOTDIR/plugins/yupps-zsh}
 

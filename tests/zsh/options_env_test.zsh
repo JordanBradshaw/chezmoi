@@ -79,4 +79,15 @@ test_locale_keeps_existing_settings() {
   done
 }
 
+# zshenv.d/10-yupps sources the plugin's zshenv.d, so YUPPS_DIR is set here.
+test_base_sets_yupps_dir() {
+  unset YUPPS_DIR
+  ZDOTDIR=/z
+  source $ZDOT/zshenv.d/00-base.zsh
+  assert_eq "$YUPPS_DIR" "/z/plugins/yupps-zsh" "default"
+  YUPPS_DIR=/mine
+  source $ZDOT/zshenv.d/00-base.zsh
+  assert_eq "$YUPPS_DIR" "/mine" "preset"
+}
+
 run_all
