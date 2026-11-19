@@ -1,0 +1,8 @@
+{{ if and (ne .machine "container") stdinIsATTY -}}
+#!/usr/bin/env bash
+# Make zsh the login shell. Only on interactive applies: chsh may ask for a
+# password. A non-interactive apply renders this empty, so the next
+# interactive one runs it.
+# set-login-shell.sh hash: {{ include (joinPath .chezmoi.workingTree "scripts/set-login-shell.sh") | sha256sum }}
+exec "{{ .chezmoi.workingTree }}/scripts/set-login-shell.sh"
+{{ end -}}
