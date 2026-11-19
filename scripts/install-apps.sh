@@ -7,8 +7,8 @@
 #
 #   Run by chezmoi (.chezmoiscripts/run_onchange_after_10-install-apps.sh.tmpl)
 #   with the machine type and appsBuild from chezmoi data. Without --machine
-#   the type is guessed: container markers, then plasmashell (desktop), else
-#   server.
+#   the type is guessed: Termux (desktop), container markers, then plasmashell
+#   (desktop), else server.
 #
 #   Tiers installed per machine type:
 #     core     every machine
@@ -44,6 +44,14 @@
 #               prebuilt copy and is reported without failing the run.
 #               Re-runs only rebuild crates with newer versions.
 #
+#   Termux (TERMUX_VERSION set, or PREFIX under com.termux) uses pkg and the
+#   manifest's termux column, without sudo. It first installs what zssh's
+#   bundle builder needs (openssh, python, golang) and root-repo, and builds
+#   eget with go: prebuilt Go and musl binaries can't resolve DNS on Android,
+#   which has no /etc/resolv.conf. Rows without a Termux package are skipped,
+#   release downloads included; --build cargo builds their crate: natively
+#   with the rust package.
+#
 #   DRY_RUN=1 prints the commands instead of running them.
 
 set -euo pipefail
@@ -57,7 +65,12 @@ declare -A BUILD_DEPS=(
     [pacman]="base-devel"
     [dnf]="gcc make pkgconf-pkg-config"
     [brew]=""
+    [termux]="rust pkg-config"
 )
+
+# Installed first on Termux: zssh's bundle builder needs ssh, python3 (for
+# tomllib) and go (for eget); root-repo has tcpdump, ethtool and friends.
+TERMUX_BASE=(root-repo openssh python golang)
 
 run() {
     if [[ -n ${DRY_RUN:-} ]]; then
@@ -67,13 +80,19 @@ run() {
     fi
 }
 
+is_termux() {
+    [[ -n ${TERMUX_VERSION:-} || ${PREFIX:-} == */com.termux/* ]]
+}
+
 is_container() {
     [[ -f /.dockerenv || -f /run/.containerenv \
         || -n ${REMOTE_CONTAINERS:-} || -n ${CODESPACES:-} ]]
 }
 
 detect_machine() {
-    if is_container; then
+    if is_termux; then
+        echo desktop
+    elif is_container; then
         echo container
     elif command -v plasmashell >/dev/null 2>&1; then
         echo desktop
@@ -84,6 +103,10 @@ detect_machine() {
 
 detect_pkg_manager() {
     local pm
+    if is_termux && command -v pkg >/dev/null 2>&1; then
+        echo termux
+        return 0
+    fi
     for pm in pacman apt-get dnf brew; do
         if command -v "$pm" >/dev/null 2>&1; then
             echo "${pm%-get}"
@@ -120,6 +143,15 @@ ensure_eget() {
     rm -rf "$tmp"
     echo "Error: failed to install eget." >&2
     return 1
+}
+
+# ensure_eget_go: build eget with go into ~/.local/bin unless it is on PATH.
+# A Go binary built on Termux uses Android's resolver.
+ensure_eget_go() {
+    command -v eget >/dev/null 2>&1 && return 0
+    [[ -x $HOME/.local/bin/eget ]] && return 0
+    echo "Building eget with go (for zssh)..."
+    run env GOBIN="$HOME/.local/bin" go install github.com/zyedidia/eget@latest
 }
 
 # install_release NAME: download NAME's release binary to ~/.local/bin, from
@@ -307,7 +339,7 @@ main() {
     fi
 
     local -a sudo=()
-    if [[ $pm != brew && $EUID -ne 0 ]]; then
+    if [[ $pm != brew && $pm != termux && $EUID -ne 0 ]]; then
         if ! command -v sudo >/dev/null 2>&1; then
             echo "Error: Root privileges are required, but sudo is unavailable." >&2
             return 1
@@ -329,6 +361,7 @@ main() {
         pacman) install=(pacman -S --needed --noconfirm) ;;
         dnf)    install=(dnf install -y) ;;
         brew)   install=(brew install) ;;
+        termux) install=(pkg install -y) ;;
     esac
     echo "Package manager: $pm"
 
@@ -341,9 +374,16 @@ main() {
         release="$(app "$name" release)"
         spec="$(app "$name" build)"
         [[ $spec == crate:* ]] && crates+=("${spec#crate:}")
+        if [[ $pm == termux && $pkg == - ]]; then
+            # Release binaries don't run on Android; a cargo build does.
+            if ! [[ $build == cargo && $spec == crate:* ]] && ! command -v "$name" >/dev/null 2>&1; then
+                echo "$name: no Termux package; skipping."
+            fi
+            continue
+        fi
         if [[ $pkg != - ]]; then
             pkgs+=("$pkg")
-            [[ $release != - ]] && fallback[$pkg]="$name"
+            [[ $release != - && $pm != termux ]] && fallback[$pkg]="$name"
         elif [[ $release != - ]]; then
             releases+=("$name")
         elif [[ $spec == pipx:* ]]; then
@@ -363,6 +403,12 @@ main() {
     if [[ $build == cargo && -n ${BUILD_DEPS[$pm]} ]]; then
         read -r -a fields <<<"${BUILD_DEPS[$pm]}"
         pkgs+=("${fields[@]}")
+    fi
+
+    if [[ $pm == termux ]]; then
+        run "${install[@]}" "${TERMUX_BASE[@]}" || failed+=("${TERMUX_BASE[@]}")
+        # root-repo's packages are listed only after an update.
+        run apt-get update || true
     fi
 
     if [[ $pm == apt ]]; then
@@ -388,6 +434,10 @@ main() {
                 failed+=("$pkg")
             fi
         done
+    fi
+
+    if [[ $pm == termux ]]; then
+        ensure_eget_go || failed+=(eget)
     fi
 
     for name in "${releases[@]}"; do

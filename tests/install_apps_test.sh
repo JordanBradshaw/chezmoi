@@ -34,7 +34,7 @@ setup() {
     done
 
     unset REMOTE_CONTAINERS CODESPACES APPS_FORCE_EXTRA APPS_FORCE_NALA DRY_RUN \
-        STUB_FAIL_PKGS STUB_FAIL_CRATES APPS_NALA STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME
+        STUB_FAIL_PKGS STUB_FAIL_CRATES APPS_NALA STUB_UNAME_S STUB_UNAME_M STUB_ELF_MACHINE APPS_FILE APPS_BUILD RUSTFLAGS EGET_GITHUB_TOKEN XDG_CONFIG_HOME TERMUX_VERSION PREFIX
     stub sudo
     stub pipx
     stub_uname
@@ -1123,6 +1123,107 @@ test_init_keeps_and_defaults_apps_build() {
 }
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Termux
+# ---------------------------------------------------------------------------
+
+TERMUX_BASE="root-repo openssh python golang"
+CORE_TERMUX="curl git unzip zsh fzf bat eza lsd ripgrep fd git-delta zoxide atuin direnv"
+
+# stub_go: go that logs its arguments and GOBIN.
+stub_go() {
+    printf '#!/usr/bin/env bash\necho "go $* GOBIN=${GOBIN:-}" >>"$STUB_LOG"\n' >"$STUBS/go"
+    chmod +x "$STUBS/go"
+}
+
+# termux: a Termux environment with pkg, Termux's own apt-get, and go.
+termux() {
+    export TERMUX_VERSION=0.118.1
+    stub pkg
+    stub apt-get
+    stub_go
+}
+
+test_termux_uses_pkg_without_sudo() {
+    termux
+    run_apps --machine desktop
+    assert_status 0
+    assert_call "pkg install -y $TERMUX_BASE"
+    # root-repo's packages (tcpdump, ethtool) appear after an update.
+    assert_call "apt-get update"
+    assert_call_matches "^pkg install -y $CORE_TERMUX "
+    refute_call_matches "^sudo |^apt-get install"
+}
+
+test_termux_detected_from_prefix() {
+    stub pkg
+    stub apt-get
+    stub_go
+    export PREFIX=/data/data/com.termux/files/usr
+    run_apps --machine server
+    assert_status 0
+    assert_call_matches "^pkg install -y $CORE_TERMUX "
+}
+
+test_termux_machine_defaults_to_desktop() {
+    termux
+    run_apps
+    assert_status 0
+    assert_output_matches "^Machine: desktop"
+}
+
+test_termux_uses_termux_names() {
+    termux
+    run_apps --machine desktop
+    assert_call_matches "^pkg install .*\bnushell\b.*\bdust\b|^pkg install .*\bdust\b.*\bnushell\b"
+    assert_call_matches "^pkg install .*\blazygit\b"
+    refute_call_matches "^pkg install .*\b(fd-find|du-dust|fonts-firacode|pipx)\b"
+}
+
+# Release binaries need glibc or /etc/resolv.conf, which Android lacks.
+test_termux_skips_rows_without_package() {
+    termux
+    run_apps --machine desktop
+    assert_status 0
+    assert_output_matches "^lsoff: no Termux package; skipping\.$"
+    refute_call_matches "^eget |^pipx "
+}
+
+test_termux_package_failure_has_no_release_fallback() {
+    termux
+    export STUB_FAIL_PKGS="eza"
+    run_apps --machine container
+    assert_status 1
+    refute_call_matches "^eget "
+    assert_output_matches "Failed to install: eza"
+}
+
+# zssh needs eget; a prebuilt one can't resolve DNS on Android.
+test_termux_builds_eget_with_go() {
+    termux
+    run_apps --machine desktop
+    assert_status 0
+    assert_call "go install github.com/zyedidia/eget@latest GOBIN=$HOME/.local/bin"
+}
+
+test_termux_keeps_existing_eget() {
+    termux
+    stub eget
+    run_apps --machine desktop
+    assert_status 0
+    refute_call_matches "^go "
+}
+
+test_termux_cargo_uses_rust_package() {
+    termux
+    stub cargo
+    run_apps --machine desktop --build cargo
+    assert_status 0
+    assert_call_matches "^pkg install .*\brust\b"
+    refute_call_matches "rustup"
+    assert_call_matches "^cargo install .*\bbottom$"
+}
 
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
     run_test "$t"
