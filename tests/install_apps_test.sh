@@ -204,7 +204,7 @@ run_test() {
 # Tiers by machine type
 # ---------------------------------------------------------------------------
 
-CORE_APT="curl git unzip fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv"
+CORE_APT="curl git unzip zsh fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv"
 
 test_container_installs_core_only() {
     stub apt-get
@@ -452,14 +452,14 @@ test_dnf_uses_dnf_names() {
     stub dnf
     run_apps --machine container
     assert_status 0
-    assert_call "dnf install -y curl git unzip fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv"
+    assert_call "dnf install -y curl git unzip zsh fzf bat eza lsd ripgrep fd-find git-delta zoxide atuin direnv"
 }
 
 test_brew_runs_without_sudo() {
     stub brew
     run_apps --machine container
     assert_status 0
-    assert_call "brew install curl git unzip fzf bat eza lsd ripgrep fd git-delta zoxide atuin direnv"
+    assert_call "brew install curl git unzip zsh fzf bat eza lsd ripgrep fd git-delta zoxide atuin direnv"
     refute_call_matches "^sudo "
 }
 

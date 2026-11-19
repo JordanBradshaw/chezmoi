@@ -241,6 +241,7 @@ test_apps_names_filters() {
     local core=" ${OUTPUT%%$'\n'*}" rest=${OUTPUT#*$'\n'}
     local dev=" ${rest%%$'\n'*}" zssh=" ${rest#*$'\n'}"
     assert_match "$core" ' curl '
+    assert_match "$core" ' zsh '
     [[ $core != *lazydocker* ]] || fail "core has lazydocker"
     assert_match "$dev" 'lazydocker'
     [[ $dev != *' tmux '* ]] || fail "dev has tmux"

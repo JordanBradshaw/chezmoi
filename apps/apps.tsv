@@ -44,6 +44,7 @@
   curl           core     -         curl            curl           curl             curl            -                               -              -                                     -
   git            core     -         git             git            git              git             -                               -              -                                     -
   unzip          core     -         unzip           unzip          unzip            unzip           -                               -              -                                     -
+  zsh            core     -         zsh             zsh            zsh              zsh             -                               -              -                                     -
   fzf            core     zssh,dev  fzf             fzf            fzf              fzf             junegunn/fzf                    fzf            tar.gz                                go:github.com/junegunn/fzf
   bat            core     zssh,dev  bat             bat            bat              bat             sharkdp/bat                     bat            musl|gnu                              crate:bat
   eza            core     zssh,dev  eza             eza            eza              eza             eza-community/eza               eza            musl,tar.gz|gnu,tar.gz,^no_libgit     crate:eza
