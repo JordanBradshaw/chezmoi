@@ -18,7 +18,7 @@ setup() {
     STUBS="$SANDBOX/stubs"
     export STUB_LOG="$SANDBOX/calls.log" SHELLS_FILE="$SANDBOX/shells"
     export STUB_LOGIN_SHELL=/bin/bash
-    unset STUB_CHSH_FAIL
+    unset STUB_CHSH_FAIL TERMUX_VERSION PREFIX
     mkdir -p "$STUBS"
     : >"$STUB_LOG"
     local tool
@@ -128,6 +128,32 @@ test_zsh_not_in_shells_warns_no_chsh() {
     assert_status 0
     assert_eq "$(calls)" ""
     assert_match "$OUTPUT" "not in $SHELLS_FILE"
+}
+
+# Termux's chsh takes a shell name and links ~/.termux/shell; there is no
+# /etc/shells and no sudo.
+termux_env() {
+    export TERMUX_VERSION=0.118.1 HOME="$SANDBOX/home"
+    mkdir -p "$HOME"
+    rm -f "$SHELLS_FILE"
+    ln -s "$(command -v readlink)" "$STUBS/readlink"
+}
+
+test_termux_runs_termux_chsh() {
+    termux_env
+    stub_sudo 0
+    SHELL=/data/data/com.termux/files/usr/bin/bash run_script
+    assert_status 0
+    assert_eq "$(calls)" "chsh -s zsh"
+}
+
+test_termux_already_zsh_no_chsh() {
+    termux_env
+    mkdir -p "$HOME/.termux"
+    ln -s "$STUBS/zsh" "$HOME/.termux/shell"
+    SHELL=/data/data/com.termux/files/usr/bin/bash run_script
+    assert_status 0
+    assert_eq "$(calls)" ""
 }
 
 test_chsh_failure_exits_0() {

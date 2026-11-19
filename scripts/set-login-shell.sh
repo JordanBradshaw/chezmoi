@@ -15,6 +15,16 @@ if ! zsh_path=$(command -v zsh); then
     exit 0
 fi
 
+# Termux: its own chsh takes a shell name and links ~/.termux/shell (bash
+# when missing); there is no /etc/shells, passwd entry or sudo to use.
+if [[ -n ${TERMUX_VERSION:-} || ${PREFIX:-} == */com.termux/* ]]; then
+    current=$(readlink "$HOME/.termux/shell" 2>/dev/null)
+    [[ ${current##*/} == zsh ]] && exit 0
+    echo "Changing the Termux shell to zsh"
+    chsh -s zsh || warn "chsh failed; run it yourself: chsh -s zsh"
+    exit 0
+fi
+
 current=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
 current=${current:-${SHELL:-}}
 [[ ${current##*/} == zsh ]] && exit 0
