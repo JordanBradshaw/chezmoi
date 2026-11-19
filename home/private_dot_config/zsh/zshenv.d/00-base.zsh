@@ -3,6 +3,14 @@
 
 export PROMPT_SYMBOL=""
 
+# Containers (proot-distro, docker) can start with no locale at all. zsh then
+# counts bytes, not characters: the prompt's padding comes out wrong and
+# emoji print as \M-p... escapes. C.UTF-8 ships with glibc, so it is always
+# there. An explicit LANG, LC_ALL or LC_CTYPE wins.
+if [[ -z $LANG && -z $LC_ALL && -z $LC_CTYPE ]]; then
+  export LANG=C.UTF-8
+fi
+
 # XDG Base Directory spec: fill in defaults only when unset or empty.
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"

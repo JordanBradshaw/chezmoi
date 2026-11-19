@@ -163,5 +163,19 @@ test_command_preview_falls_back_without_tldr_page() {
 }
 
 # ---------------------------------------------------------------------------
+# zshrinkwrap (60-zshrinkwrap.zsh)
+# ---------------------------------------------------------------------------
+
+# zshrinkwrap looks its styles up in :zshrinkwrap:resize:<terminal>.
+test_zshrinkwrap_strategy_none_for_every_terminal() {
+  load_conf
+  local term v
+  for term in xterm-256color screen-256color tmux-256color ghostty WezTerm; do
+    zstyle -s ":zshrinkwrap:resize:$term" strategy v || fail "no strategy for $term"
+    assert_eq "$v" "none" "strategy for $term"
+  done
+}
+
+# ---------------------------------------------------------------------------
 
 run_all

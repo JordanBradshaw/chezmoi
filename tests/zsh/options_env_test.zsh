@@ -52,4 +52,31 @@ test_paths_unique() {
   done
 }
 
+# Containers (proot-distro, docker) often start with no locale, which leaves
+# zsh counting bytes instead of characters in the prompt.
+test_locale_defaults_to_c_utf8() {
+  unset LANG LC_ALL LC_CTYPE
+  source $ZDOT/zshenv.d/00-base.zsh
+  assert_eq "$LANG" "C.UTF-8" LANG
+  [[ ${(t)LANG} == *export* ]] || fail "LANG not exported: ${(t)LANG}"
+  local t="╔═🪐"
+  assert_eq "${(m)#t}" "4" "prompt width"
+}
+
+test_locale_keeps_existing_settings() {
+  local v
+  for v in LANG LC_ALL LC_CTYPE; do
+    (
+      unset LANG LC_ALL LC_CTYPE
+      export $v=en_US.UTF-8
+      source $ZDOT/zshenv.d/00-base.zsh
+      if [[ $v == LANG ]]; then
+        assert_eq "$LANG" "en_US.UTF-8" "LANG with $v set"
+      else
+        assert_eq "${LANG-unset}" "unset" "LANG with $v set"
+      fi
+    ) || fail "with $v set"
+  done
+}
+
 run_all
