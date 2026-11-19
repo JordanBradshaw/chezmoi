@@ -83,3 +83,8 @@
 
 [include] 
     path = ~/.config/git/config.local
+
+# Repos under ~/repos/personal/ always commit with the personal identity,
+# whatever config.local (work) sets. Must stay after the include above.
+[includeIf "gitdir:~/repos/personal/"]
+    path = ~/.config/git/personal
