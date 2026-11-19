@@ -1,0 +1,3 @@
+{{- /* "true" on Termux (see .chezmoi.toml.tmpl). Configs saved before the
+       termux key existed are not Termux. */ -}}
+{{- and (hasKey . "termux") .termux -}}

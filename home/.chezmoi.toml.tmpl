@@ -1,8 +1,13 @@
 {{- /* Machine type: desktop, server or container. A value saved by an earlier
        init wins, so edit ~/.config/chezmoi/chezmoi.toml to override it. */ -}}
+{{- /* Termux on Android: its chezmoi package reports os "android";
+       TERMUX_VERSION is set in every Termux session. A desktop without KDE. */ -}}
+{{- $termux := or (eq .chezmoi.os "android") (ne (env "TERMUX_VERSION") "") -}}
 {{- $machine := "" -}}
 {{- if hasKey . "machine" -}}
 {{-   $machine = .machine -}}
+{{- else if $termux -}}
+{{-   $machine = "desktop" -}}
 {{- else if or (env "CODESPACES") (env "REMOTE_CONTAINERS") (stat "/.dockerenv") (stat "/run/.containerenv") -}}
 {{-   $machine = "container" -}}
 {{- else if lookPath "plasmashell" -}}
@@ -19,7 +24,7 @@
 {{- $kde := false -}}
 {{- if hasKey . "kde" -}}
 {{-   $kde = .kde -}}
-{{- else if eq $machine "desktop" -}}
+{{- else if and (eq $machine "desktop") (not $termux) -}}
 {{-   if lookPath "plasmashell" -}}
 {{-     $kde = true -}}
 {{-   else if stdinIsATTY -}}
@@ -53,6 +58,7 @@ encryption = "age"
 [data]
     machine = {{ $machine | quote }}
     kde = {{ $kde }}
+    termux = {{ $termux }}
     hasSecrets = {{ $hasSecrets }}
     appsBuild = {{ $appsBuild | quote }}
 
