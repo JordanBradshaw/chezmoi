@@ -114,6 +114,34 @@ test_install_sh_uses_pkg_chezmoi_on_termux() {
     assert_line "$calls" "chezmoi apply"
 }
 
+# Termux draws with ~/.termux/font.ttf: one FiraCode Nerd Font face.
+test_termux_gets_font_file() {
+    config 'machine = "desktop"' 'kde = false' 'termux = true'
+    OUTPUT="$(cz managed --include=externals)"
+    assert_line "$OUTPUT" ".termux/font.ttf"
+    grep -q 'share/fonts' <<<"$OUTPUT" && fail "termux gets the desktop font dir: $OUTPUT"
+    OUTPUT="$(cz execute-template <"$REPO_DIR/home/.chezmoiexternal.toml.tmpl")"
+    grep -A4 -F '[".termux/font.ttf"]' <<<"$OUTPUT" | grep -q 'path = "FiraCodeNerdFont-Regular.ttf"' ||
+        fail "font.ttf is not FiraCodeNerdFont-Regular.ttf: $OUTPUT"
+}
+
+test_non_termux_has_no_termux_font() {
+    config 'machine = "desktop"'
+    OUTPUT="$(cz managed --include=externals)"
+    grep -q '\.termux' <<<"$OUTPUT" && fail "non-termux manages .termux: $OUTPUT"
+    return 0
+}
+
+test_termux_font_reload_script() {
+    local script="$REPO_DIR/home/.chezmoiscripts/run_onchange_after_30-termux-font.sh.tmpl"
+    config 'machine = "desktop"' 'termux = true'
+    OUTPUT="$(cz execute-template <"$script")"
+    assert_line "$OUTPUT" "termux-reload-settings"
+    grep -q 'chezmoiexternal.toml.tmpl hash: [0-9a-f]\{64\}' <<<"$OUTPUT" || fail "not keyed on externals: $OUTPUT"
+    config 'machine = "desktop"'
+    assert_eq "$(cz execute-template <"$script" | tr -d '[:space:]')" ""
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
     run_test "$t"
 done

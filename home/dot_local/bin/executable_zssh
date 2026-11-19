@@ -46,7 +46,8 @@ fi
 remote_dir=${ZSSH_REMOTE_DIR:-'/tmp/.zsh-portable'}
 
 # Icons (eza, lsd, tmux status) are drawn by the local terminal's font; the
-# host can't supply one. chezmoi installs FiraCode Nerd Font on desktops.
+# host can't supply one. chezmoi installs FiraCode Nerd Font on KDE desktops
+# and as ~/.termux/font.ttf on Termux.
 # The list is read whole: grep -q would kill fc-list early, and pipefail
 # would count that as no match.
 if command -v fc-list >/dev/null 2>&1 \

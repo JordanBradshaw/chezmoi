@@ -44,6 +44,16 @@
     include = ["*.ttf"]
     refreshPeriod = "168h"
 {{- end }}
+{{- if eq (includeTemplate "termux" .) "true" }}
+
+# Termux draws every glyph with ~/.termux/font.ttf: one face of the same
+# Fira Code Nerd Font (run_onchange_after_30-termux-font reloads it).
+[".termux/font.ttf"]
+    type = "archive-file"
+    url = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/FiraCode.tar.xz"
+    path = "FiraCodeNerdFont-Regular.ttf"
+    refreshPeriod = "168h"
+{{- end }}
 {{- if ne .machine "container" }}
 
 # Portable-bundle builder; zssh runs ~/.local/share/chezmoi-deploy/portable/build.sh.

@@ -1,0 +1,7 @@
+{{ if eq (includeTemplate "termux" .) "true" -}}
+#!/usr/bin/env bash
+# Load ~/.termux/font.ttf (a chezmoi external) into the running Termux.
+# .chezmoiexternal.toml.tmpl hash: {{ include ".chezmoiexternal.toml.tmpl" | sha256sum }}
+command -v termux-reload-settings >/dev/null 2>&1 || exit 0
+termux-reload-settings
+{{ end -}}
