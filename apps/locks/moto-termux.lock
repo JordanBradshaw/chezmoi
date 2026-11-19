@@ -1,0 +1,27 @@
+# build-tools.sh lock for moto-termux: name, source, version. Rewrite with --resolve.
+bandwhich	crate:bandwhich	0.23.1
+bat	crate:bat	0.26.1
+direnv	go:github.com/direnv/direnv/v2	v2.38.2
+diskwatch	crate:diskwatch	0.7.2
+dive	go:github.com/wagoodman/dive	v0.13.1
+duf	go:github.com/muesli/duf	v0.9.1
+dust	crate:du-dust:dust	1.2.7
+eza	crate:eza	0.23.5
+fd	crate:fd-find:fd	10.5.2
+fzf	go:github.com/junegunn/fzf	v0.75.0
+gping	crate:gping	1.21.0
+lazydocker	go:github.com/jesseduffield/lazydocker	v0.25.2
+lazyjournal	go:github.com/Lifailon/lazyjournal	0.8.7
+lsd	crate:lsd	1.2.0
+lsoff	go:github.com/yutat23/lsoff	v0.1.6
+procs	crate:procs	0.14.12
+rg	crate:ripgrep:rg	15.2.0
+snitch	go:github.com/karol-broda/snitch	v0.2.2
+systemctl-tui	crate:systemctl-tui	0.7.0
+systeroid	crate:systeroid	0.4.6
+systeroid-tui	crate:systeroid-tui	0.4.6
+trip	crate:trippy:trip	0.13.0
+tspin	crate:tailspin:tspin	7.0.0
+viddy	crate:viddy	1.3.1
+xfr	crate:xfr	0.15.0
+zoxide	crate:zoxide	0.10.0
