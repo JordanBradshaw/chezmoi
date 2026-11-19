@@ -44,7 +44,7 @@
     include = ["*.ttf"]
     refreshPeriod = "168h"
 {{- end }}
-{{- if eq .machine "desktop" }}
+{{- if ne .machine "container" }}
 
 # Portable-bundle builder; zssh runs ~/.local/share/chezmoi-deploy/portable/build.sh.
 [".local/share/chezmoi-deploy"]

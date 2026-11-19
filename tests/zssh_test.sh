@@ -417,7 +417,7 @@ test_zssh_without_wrapper_fails_clearly() {
         CHEZMOI_SRC="$SANDBOX" XDG_RUNTIME_DIR="$SANDBOX" bash "$ZSSH" jetson 2>&1)"
     STATUS=$?
     assert_status 1
-    assert_output_matches "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop"
+    assert_output_matches "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop or server"
     refute_call_matches "^ssh "
 }
 
@@ -473,17 +473,19 @@ test_zssh_builder_override_tolerates_failing_chezmoi() {
     ! grep -q boom <<<"$OUTPUT" || fail "chezmoi stderr leaked"
 }
 
-test_deploy_external_desktop_only() {
+# zssh builds bundles on desktops and servers (a phone in proot Debian is a
+# desktop without KDE); containers never run it.
+test_deploy_external_not_in_containers() {
     local m
-    for m in desktop server; do
+    for m in desktop server container; do
         printf '[data]\n    machine = "%s"\n    hasSecrets = false\n' "$m" >"$SANDBOX/chezmoi.toml"
         OUTPUT="$(chezmoi --source="$REPO_DIR" --config="$SANDBOX/chezmoi.toml" \
             --persistent-state="$SANDBOX/p.db" --destination="$SANDBOX/dest" execute-template \
             <"$REPO_DIR/home/.chezmoiexternal.toml.tmpl" 2>/dev/null)"
-        if [[ $m == desktop ]]; then
-            grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "desktop lacks chezmoi-deploy external"
+        if [[ $m == container ]]; then
+            ! grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "container has chezmoi-deploy external"
         else
-            ! grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "server has chezmoi-deploy external"
+            grep -qF '[".local/share/chezmoi-deploy"]' <<<"$OUTPUT" || fail "$m lacks chezmoi-deploy external"
         fi
     done
 }

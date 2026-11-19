@@ -87,7 +87,7 @@ if [[ -z $builder ]]; then
         fi
     done
     if [[ -z $builder ]]; then
-        echo "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop" >&2
+        echo "zssh: no chezmoi-deploy checkout; set ZSSH_DEPLOY or run chezmoi apply on a desktop or server" >&2
         exit 1
     fi
     if [[ -z ${CHEZMOI_SRC:-} ]]; then
