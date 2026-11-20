@@ -6,6 +6,9 @@
 typeset -g ZDOT=${0:A:h:h:h}/home/private_dot_config/zsh
 typeset -g CONF=$ZDOT/zshrc.d/76-keybindings.zsh
 source ${0:A:h}/lib.zsh
+# The real plugin, when antidote has fetched it (read before the sandbox
+# replaces HOME).
+typeset -g ZVM_SRC=${ZVM_SRC:-$HOME/.cache/antidote/jeffreytse/zsh-vi-mode/zsh-vi-mode.zsh}
 
 load_conf() {
   zmodload zsh/zle
@@ -73,6 +76,29 @@ test_ctrl_r_untouched_without_atuin() {
   local before=$(bindkey -M emacs '^R')
   load_conf
   assert_eq "$(bindkey -M emacs '^R')" "$before"
+}
+
+# zsh-vi-mode's cursor reset tests '\e\][0-9]+;.+\a' with =~; Termux's regex
+# library rejects it ("trailing backslash") on every Enter. The test becomes a
+# zsh pattern for the same OSC sequence.
+test_zvm_cursor_regex_replaced_by_pattern() {
+  [[ -f $ZVM_SRC ]] || { echo "  skip $0: no zsh-vi-mode"; return 0; }
+  source $ZVM_SRC
+  load_conf
+  [[ $functions[zvm_cursor_style] != *'=~'* ]] || fail "regex left in zvm_cursor_style"
+  ZVM_MODE=$ZVM_MODE_INSERT
+  ZVM_INSERT_MODE_CURSOR='\e[5 q\e\e]12;red\a'
+  # zvm_cursor_style ends with echo, which turns \e and \a into bytes.
+  assert_eq "$(zvm_cursor_style $ZVM_CURSOR_USER_DEFAULT xterm)" $'\e[0 q\e\e]112\a' colored
+  ZVM_INSERT_MODE_CURSOR=$'\e[5 q\e\e]12;#00ff00\a'
+  assert_eq "$(zvm_cursor_style $ZVM_CURSOR_USER_DEFAULT xterm)" $'\e[0 q\e\e]112\a' escapes
+  ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+  assert_eq "$(zvm_cursor_style $ZVM_CURSOR_USER_DEFAULT xterm)" $'\e[0 q' plain
+}
+
+test_zvm_patch_skipped_without_zsh_vi_mode() {
+  load_conf
+  (( ! ${+functions[zvm_cursor_style]} )) || fail "defined zvm_cursor_style"
 }
 
 run_all

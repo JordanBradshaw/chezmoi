@@ -72,3 +72,15 @@ else
   }
   add-zsh-hook precmd _zc_bind_keys_once
 fi
+
+# zsh-vi-mode's cursor reset tests a cursor color sequence with
+# `=~ '\e\][0-9]+;.+\a'`. Termux's regex library rejects that ("failed to
+# compile regex: trailing backslash") on every Enter (zsh-vi-mode #159). Swap
+# it for a zsh pattern matching the sequence as text (\e...\a) or as bytes.
+if (( ${+functions[zvm_cursor_style]} )); then
+  () {
+    local old='$old_style =~ '\''\e\][0-9]+;.+\a'\'
+    local new='$old_style == *(\\e|$'\''\e'\'')\]<->\;*(\\a|$'\''\a'\'')*'
+    functions[zvm_cursor_style]=${functions[zvm_cursor_style]/$old/$new}
+  }
+fi

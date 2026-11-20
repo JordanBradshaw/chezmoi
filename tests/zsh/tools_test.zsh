@@ -22,18 +22,51 @@ stub_init_cache() {
 }
 
 test_tools_initialized_with_their_arguments() {
-  stub_init_cache zoxide atuin direnv
+  stub_init_cache zoxide atuin
   source $CONF
-  assert_eq "${(j:|:)CALLS}" "zoxide init zsh|atuin init zsh --disable-up-arrow|direnv hook zsh"
-  assert_eq "$(zoxide_ok)$(atuin_ok)$(direnv_ok)" "okokok"
+  assert_eq "${(j:|:)CALLS}" "zoxide init zsh|atuin init zsh --disable-up-arrow"
+  assert_eq "$(zoxide_ok)$(atuin_ok)" "okok"
 }
 
 test_missing_tools_are_skipped() {
-  stub_init_cache direnv
+  stub_init_cache atuin
   source $CONF
-  (( ! $+functions[zoxide_ok] && ! $+functions[atuin_ok] )) || fail "missing tool sourced"
-  assert_eq "$(direnv_ok)" ok
+  (( ! $+functions[zoxide_ok] )) || fail "missing tool sourced"
+  assert_eq "$(atuin_ok)" ok
   (( ! ${+REPLY} )) || fail "REPLY left set"
+}
+
+# direnv's own hook embeds its path from /proc/self/exe. On Termux that is
+# /system/bin/linker64, which then fails with 'expected absolute path:
+# "export"' at every prompt. The repo's hook calls direnv by name.
+test_direnv_hook_calls_direnv_by_name() {
+  path=($STUB_BIN)
+  stub_cmd direnv 'echo "print -r -- direnv:$*"'
+  rehash
+  source $CONF
+  (( ${precmd_functions[(Ie)_direnv_hook]} )) || fail "no precmd hook"
+  (( ${chpwd_functions[(Ie)_direnv_hook]} )) || fail "no chpwd hook"
+  assert_eq "$(_direnv_hook)" "direnv:export zsh"
+  [[ $functions[_direnv_hook] != */* ]] || fail "hook has a path: $functions[_direnv_hook]"
+}
+
+test_direnv_hook_registered_once() {
+  path=($STUB_BIN)
+  stub_cmd direnv
+  rehash
+  source $CONF
+  source $CONF
+  local -a pre=(${(M)precmd_functions:#_direnv_hook}) chp=(${(M)chpwd_functions:#_direnv_hook})
+  assert_eq $#pre 1 precmd
+  assert_eq $#chp 1 chpwd
+}
+
+test_no_direnv_no_hook() {
+  path=($STUB_BIN)
+  rehash
+  source $CONF
+  (( ! ${+functions[_direnv_hook]} )) || fail "hook without direnv"
+  (( ! ${precmd_functions[(Ie)_direnv_hook]:-0} )) || fail "precmd hook without direnv"
 }
 
 # Without the plugin (e.g. before chezmoi fetched it) there is nothing to call.
