@@ -269,7 +269,7 @@ $bundle/zsh/plugins/yupps-zsh"
 # The real plugin's toolchains file puts existing bin dirs on PATH, once.
 test_real_yupps_toolchains_reach_path() {
     local src
-    for src in /tmp/opencode/yupps-layout/zshenv.d "$HOME/.config/zsh/plugins/yupps-zsh/zshenv.d"; do
+    for src in ${YUPPS_SRC:+"$YUPPS_SRC/zshenv.d"} "$HOME/.config/zsh/plugins/yupps-zsh/zshenv.d"; do
         [[ -f $src/10-toolchains.zsh ]] && break
         src=""
     done
@@ -462,15 +462,19 @@ test_zstyles_d_loads_in_order_with_local_files() {
     return 0
 }
 
-# The repo zstyles moved to the yupps-zsh plugin; apply removes the old
-# copies and keeps local files.
+# The repo zstyles moved to the yupps-zsh plugin; apply removes every
+# .chezmoiremove entry and keeps local files.
 test_repo_zstyles_moved_to_plugin() {
-    local d="$HOME_DIR/$ZDOT/zstyles.d"
-    mkdir -p "$d"
-    printf 'old\n' >"$d/10-completion.zsh"
+    local d="$HOME_DIR/$ZDOT/zstyles.d" e
+    mkdir -p "$d" "$HOME_DIR/$ZDOT/zshenv.d"
+    while IFS= read -r e; do
+        [[ -n $e ]] && printf 'old\n' >"$HOME_DIR/$e"
+    done <"$REPO_DIR/home/.chezmoiremove"
     printf 'mine\n' >"$d/99-local.zsh"
     apply_zsh
-    [[ -e $d/10-completion.zsh ]] && fail "old 10-completion.zsh kept"
+    while IFS= read -r e; do
+        [[ -n $e && -e $HOME_DIR/$e ]] && fail "old $e kept"
+    done <"$REPO_DIR/home/.chezmoiremove"
     [[ -f $d/99-local.zsh ]] || fail "local zstyles.d file removed"
     [[ -e $REPO_DIR/home/private_dot_config/zsh/zstyles.d ]] && fail "repo still has zstyles.d"
     return 0
@@ -532,7 +536,7 @@ test_yupps_has_no_chezmoi_external_or_pin() {
 # says when it loads; sets YUPPS_URL.
 make_yupps_repo() {
     local r="$SANDBOX/yupps-repo"
-    mkdir -p "$r/conf.d" "$r/themes"
+    mkdir -p "$r/zshrc.d" "$r/themes"
     printf 'print -r loaded:${0:A:h:t}\n' >"$r/yupps.plugin.zsh"
     printf 'print -r theme-loaded\n' >"$r/themes/yupps.zsh-theme"
     git -C "$r" init -q && git -C "$r" add -A &&
@@ -629,10 +633,10 @@ test_existing_checkout_is_fast_forwarded_in_background() {
     apply_zsh
     make_yupps_repo
     yupps_rc >/dev/null
-    yupps_commit conf.d/new.zsh
+    yupps_commit zshrc.d/new.zsh
     OUTPUT="$(yupps_rc)"
     assert_eq "$OUTPUT" "loaded:yupps-zsh"
-    wait_for "$HOME_DIR/$YUPPS_DIR_REL/conf.d/new.zsh" || fail "not pulled"
+    wait_for "$HOME_DIR/$YUPPS_DIR_REL/zshrc.d/new.zsh" || fail "not pulled"
     return 0
 }
 
@@ -657,10 +661,10 @@ test_no_pull_under_zssh() {
     apply_zsh
     make_yupps_repo
     yupps_rc >/dev/null
-    yupps_commit conf.d/new.zsh
+    yupps_commit zshrc.d/new.zsh
     run_zsh "ZSH_PORTABLE=/b; source \$ZDOTDIR/zshrc.d/71-custom-plugin.zsh" >/dev/null 2>&1
     sleep 1
-    [[ -e $HOME_DIR/$YUPPS_DIR_REL/conf.d/new.zsh ]] && fail "pulled under zssh"
+    [[ -e $HOME_DIR/$YUPPS_DIR_REL/zshrc.d/new.zsh ]] && fail "pulled under zssh"
     return 0
 }
 
