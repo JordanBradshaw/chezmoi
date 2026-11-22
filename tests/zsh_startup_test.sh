@@ -406,7 +406,7 @@ test_zshrc_d_loads_in_order_then_user_lines() {
     printf 'print -r user\n' >>"$HOME_DIR/$ZDOT/.zshrc"
     OUTPUT="$(env -i HOME="$HOME_DIR" PATH=/usr/bin:/bin ZDOTDIR="$HOME_DIR/$ZDOT" \
         zsh -fc 'source $ZDOTDIR/.zshrc')"
-    assert_eq "$(tr '\n' ' ' <<<"$OUTPUT")" "00-early 01-tmux-ssh 50-local 70-antidote 71-custom-plugin 72-options 73-env 75-tools 76-keybindings 80-zstyles.d 90-host user "
+    assert_eq "$(tr '\n' ' ' <<<"$OUTPUT")" "00-early 50-local 70-antidote 71-custom-plugin 72-options 73-env 75-tools 76-keybindings 80-zstyles.d 90-host user "
 }
 
 test_apply_keeps_local_snippets() {
@@ -466,7 +466,7 @@ test_zstyles_d_loads_in_order_with_local_files() {
 # .chezmoiremove entry and keeps local files.
 test_repo_zstyles_moved_to_plugin() {
     local d="$HOME_DIR/$ZDOT/zstyles.d" e
-    mkdir -p "$d" "$HOME_DIR/$ZDOT/zshenv.d"
+    mkdir -p "$d" "$HOME_DIR/$ZDOT/zshenv.d" "$HOME_DIR/$ZDOT/zshrc.d"
     while IFS= read -r e; do
         [[ -n $e ]] && printf 'old\n' >"$HOME_DIR/$e"
     done <"$REPO_DIR/home/.chezmoiremove"

@@ -7,3 +7,4 @@
 .config/zsh/zstyles.d/45-fzf-tab-previews.zsh
 .config/zsh/zstyles.d/50-omz-plugins.zsh
 .config/zsh/zstyles.d/60-zshrinkwrap.zsh
+.config/zsh/zshrc.d/01-tmux-ssh.zsh
