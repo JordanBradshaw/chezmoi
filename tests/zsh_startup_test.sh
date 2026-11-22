@@ -406,7 +406,7 @@ test_zshrc_d_loads_in_order_then_user_lines() {
     printf 'print -r user\n' >>"$HOME_DIR/$ZDOT/.zshrc"
     OUTPUT="$(env -i HOME="$HOME_DIR" PATH=/usr/bin:/bin ZDOTDIR="$HOME_DIR/$ZDOT" \
         zsh -fc 'source $ZDOTDIR/.zshrc')"
-    assert_eq "$(tr '\n' ' ' <<<"$OUTPUT")" "00-early 50-local 70-antidote 71-custom-plugin 72-options 73-env 75-tools 76-keybindings 80-zstyles.d 90-host user "
+    assert_eq "$(tr '\n' ' ' <<<"$OUTPUT")" "00-early 01-tmux-ssh 50-local 70-antidote 71-custom-plugin 72-options 73-env 75-tools 76-keybindings 80-zstyles.d 90-host user "
 }
 
 test_apply_keeps_local_snippets() {

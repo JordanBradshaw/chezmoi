@@ -8,3 +8,7 @@
 {{ if not .hasSecrets }}
 .config/secrets
 {{ end }}
+{{ if or .termux (eq .machine "container") }}
+# ssh logins attach to tmux on desktops and servers only.
+.config/zsh/zshrc.d/01-tmux-ssh.zsh
+{{ end }}
