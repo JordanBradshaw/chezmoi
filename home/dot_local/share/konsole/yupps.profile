@@ -18,7 +18,7 @@ RemoteTabTitleFormat=%u@%h
 SemanticUpDown=true
 
 [Interaction Options]
-MouseWheelZoomEnabled=false
+MouseWheelZoomEnabled=true
 TrimTrailingSpacesInSelectedText=true
 
 [Keyboard]

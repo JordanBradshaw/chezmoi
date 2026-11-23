@@ -47,7 +47,7 @@ echo
 echo "Configuring Behavior..."
 
 set_config Behavior FocusFollowsMouse true bool
-set_config Behavior OpenAfterStart true bool
+set_config Behavior OpenAfterStart false bool
 set_config Behavior RememberFullscreen true bool
 
 # ─── Desktop Entry ───────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ echo "Configuring Window..."
 
 set_config Window DynamicTabTitles true bool
 set_config Window Height 100 int
-set_config Window KeepOpenAfterLastSessionCloses true bool
+set_config Window KeepOpenAfterLastSessionCloses false bool
 set_config Window ToggleToFocus true bool
 
 # ─── Shortcuts ───────────────────────────────────────────────────────────────
